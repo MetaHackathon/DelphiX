@@ -3,9 +3,12 @@ import type { Config } from "tailwindcss";
 export default {
   darkMode: ["class"],
   content: [
-    "./app/**/{**,.client,.server}/**/*.{js,jsx,ts,tsx}",
-    "./components/**/*.{js,jsx,ts,tsx}",
+    "./pages/**/*.{ts,tsx}",
+    "./components/**/*.{ts,tsx}",
+    "./app/**/*.{ts,tsx}",
+    "./src/**/*.{ts,tsx}",
   ],
+  prefix: "",
   theme: {
     container: {
       center: true,
@@ -76,10 +79,54 @@ export default {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        blob: {
+          "0%": {
+            transform: "translate(0px, 0px) scale(1)",
+          },
+          "33%": {
+            transform: "translate(30px, -50px) scale(1.1)",
+          },
+          "66%": {
+            transform: "translate(-20px, 20px) scale(0.9)",
+          },
+          "100%": {
+            transform: "translate(0px, 0px) scale(1)",
+          },
+        },
+        "fade-in": {
+          "0%": { opacity: "0", transform: "translateY(20px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+                 "slide-up": {
+           "0%": { opacity: "0", transform: "translateY(100px)" },
+           "100%": { opacity: "1", transform: "translateY(0)" },
+         },
+         orbit: {
+           "0%": { transform: "rotate(0deg) translateX(32px) rotate(0deg)" },
+           "100%": { transform: "rotate(360deg) translateX(32px) rotate(-360deg)" },
+         },
+         twinkle: {
+           "0%, 100%": { opacity: "0.3", transform: "scale(0.8)" },
+           "50%": { opacity: "1", transform: "scale(1.2)" },
+         },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+                 blob: "blob 7s infinite",
+         "fade-in": "fade-in 0.5s ease-out",
+         "slide-up": "slide-up 0.6s ease-out",
+         "orbit-1": "orbit 3s linear infinite",
+         "orbit-2": "orbit 3s linear infinite 0.75s",
+         "orbit-3": "orbit 3s linear infinite 1.5s",
+         "orbit-4": "orbit 3s linear infinite 2.25s",
+         "twinkle-1": "twinkle 2s ease-in-out infinite",
+         "twinkle-2": "twinkle 2s ease-in-out infinite 0.5s",
+         "twinkle-3": "twinkle 2s ease-in-out infinite 1s",
+      },
+      animationDelay: {
+        "2000": "2s",
+        "4000": "4s",
       },
     },
   },
