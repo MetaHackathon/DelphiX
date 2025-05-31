@@ -178,22 +178,22 @@ export default function PaperAgent() {
   return (
     <div className="h-screen bg-gray-50 flex flex-col">
       {/* Header */}
-      <div className="border-b border-gray-200 bg-white px-6 py-4">
+      <div className="border-b border-gray-200 bg-white px-4 py-2.5">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3">
             <Link to="/knowledge-canvas">
               <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-900">
-                <ArrowLeft className="w-4 h-4 mr-2" />
+                <ArrowLeft className="w-3.5 h-3.5 mr-1.5" />
                 Canvas
               </Button>
             </Link>
-            <Separator orientation="vertical" className="h-6" />
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <MessageCircle className="w-4 h-4 text-white" />
+            <Separator orientation="vertical" className="h-5" />
+            <div className="flex items-center space-x-2">
+              <div className="w-6 h-6 bg-blue-600 rounded-lg flex items-center justify-center">
+                <MessageCircle className="w-3.5 h-3.5 text-white" />
               </div>
               <div>
-                <h1 className="text-lg font-semibold text-gray-900">Paper Agent</h1>
+                <h1 className="text-base font-semibold text-gray-900">Paper Agent</h1>
                 <p className="text-xs text-gray-500">AI Research Assistant</p>
               </div>
             </div>
@@ -201,14 +201,14 @@ export default function PaperAgent() {
           
           <div className="flex items-center space-x-2">
             <Button variant="outline" size="sm">
-              <Download className="w-4 h-4 mr-2" />
+              <Download className="w-3.5 h-3.5 mr-1.5" />
               Export Chat
             </Button>
             <Button variant="outline" size="sm">
-              <Share2 className="w-4 h-4" />
+              <Share2 className="w-3.5 h-3.5" />
             </Button>
             <Button variant="outline" size="sm">
-              <Settings className="w-4 h-4" />
+              <Settings className="w-3.5 h-3.5" />
             </Button>
           </div>
         </div>
@@ -216,24 +216,24 @@ export default function PaperAgent() {
 
       <div className="flex-1 flex">
         {/* Paper Info Sidebar */}
-        <div className="w-80 border-r border-gray-200 bg-white">
-          <div className="p-6">
-            <div className="space-y-6">
+        <div className="w-72 border-r border-gray-200 bg-white">
+          <div className="p-4">
+            <div className="space-y-4">
               {/* Paper Header */}
               <div>
-                <h2 className="text-lg font-semibold text-gray-900 leading-tight mb-2">
+                <h2 className="text-base font-semibold text-gray-900 leading-tight mb-2">
                   {paper.title}
                 </h2>
-                <p className="text-sm text-gray-600 mb-3">
+                <p className="text-sm text-gray-600 mb-2">
                   {paper.authors.join(', ')}
                 </p>
-                <div className="flex items-center space-x-4 text-xs text-gray-500 mb-4">
+                <div className="flex items-center space-x-3 text-xs text-gray-500 mb-3">
                   <span>{paper.venue} {paper.year}</span>
                   <span>•</span>
                   <span>{paper.citations?.toLocaleString()} citations</span>
                 </div>
                 
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-1.5">
                   {paper.topics.map((topic: string) => (
                     <Badge key={topic} variant="secondary" className="text-xs">
                       {topic}
@@ -245,19 +245,19 @@ export default function PaperAgent() {
               <Separator />
 
               {/* Quick Actions */}
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <h3 className="text-sm font-medium text-gray-900">Quick Actions</h3>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Button variant="outline" size="sm" className="w-full justify-start">
-                    <Download className="w-4 h-4 mr-2" />
+                    <Download className="w-3.5 h-3.5 mr-2" />
                     Download PDF
                   </Button>
                   <Button variant="outline" size="sm" className="w-full justify-start">
-                    <Bookmark className="w-4 h-4 mr-2" />
+                    <Bookmark className="w-3.5 h-3.5 mr-2" />
                     Save to Library
                   </Button>
                   <Button variant="outline" size="sm" className="w-full justify-start">
-                    <ExternalLink className="w-4 h-4 mr-2" />
+                    <ExternalLink className="w-3.5 h-3.5 mr-2" />
                     View on ArXiv
                   </Button>
                 </div>
@@ -267,14 +267,14 @@ export default function PaperAgent() {
 
               {/* Paper Sections */}
               <div>
-                <h3 className="text-sm font-medium text-gray-900 mb-3">Sections</h3>
-                <div className="space-y-1">
+                <h3 className="text-sm font-medium text-gray-900 mb-2">Sections</h3>
+                <div className="space-y-0.5">
                   {paper.sections.map((section: string, index: number) => (
                     <Button 
                       key={index} 
                       variant="ghost" 
                       size="sm" 
-                      className="w-full justify-start text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                      className="w-full justify-start text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-50 h-7"
                     >
                       <FileText className="w-3 h-3 mr-2" />
                       {section}
@@ -287,7 +287,7 @@ export default function PaperAgent() {
 
               {/* Abstract */}
               <div>
-                <h3 className="text-sm font-medium text-gray-900 mb-3">Abstract</h3>
+                <h3 className="text-sm font-medium text-gray-900 mb-2">Abstract</h3>
                 <p className="text-xs text-gray-600 leading-relaxed">
                   {paper.abstract}
                 </p>
@@ -299,18 +299,18 @@ export default function PaperAgent() {
         {/* Chat Interface */}
         <div className="flex-1 flex flex-col">
           {/* Messages */}
-          <ScrollArea className="flex-1 p-6">
-            <div className="max-w-4xl mx-auto space-y-6">
+          <ScrollArea className="flex-1 p-4">
+            <div className="max-w-4xl mx-auto space-y-4">
               {messages.map((message) => (
                 <div
                   key={message.id}
                   className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
-                  <div className={`max-w-2xl ${message.type === 'user' ? 'ml-12' : 'mr-12'}`}>
+                  <div className={`max-w-2xl ${message.type === 'user' ? 'ml-8' : 'mr-8'}`}>
                     {message.type === 'assistant' && (
-                      <div className="flex items-center space-x-2 mb-2">
-                        <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
-                          <Sparkles className="w-3 h-3 text-white" />
+                      <div className="flex items-center space-x-2 mb-1.5">
+                        <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center">
+                          <Sparkles className="w-2.5 h-2.5 text-white" />
                         </div>
                         <span className="text-xs font-medium text-gray-600">Research Assistant</span>
                       </div>
@@ -321,7 +321,7 @@ export default function PaperAgent() {
                         ? 'bg-blue-600 text-white border-blue-600' 
                         : 'bg-white border-gray-200'
                     }`}>
-                      <CardContent className="p-4">
+                      <CardContent className="p-3">
                         <p className={`text-sm leading-relaxed ${
                           message.type === 'user' ? 'text-white' : 'text-gray-900'
                         }`}>
@@ -329,9 +329,9 @@ export default function PaperAgent() {
                         </p>
                         
                         {message.references && (
-                          <div className="mt-3 pt-3 border-t border-gray-100">
-                            <div className="flex items-center space-x-2 mb-2">
-                              <FileText className="w-3 h-3 text-gray-500" />
+                          <div className="mt-2 pt-2 border-t border-gray-100">
+                            <div className="flex items-center space-x-1.5 mb-1.5">
+                              <FileText className="w-2.5 h-2.5 text-gray-500" />
                               <span className="text-xs font-medium text-gray-600">References</span>
                             </div>
                             <div className="flex flex-wrap gap-1">
@@ -347,15 +347,15 @@ export default function PaperAgent() {
                     </Card>
                     
                     {message.type === 'assistant' && (
-                      <div className="flex items-center space-x-2 mt-2">
-                        <Button variant="ghost" size="sm" className="h-6 px-2">
-                          <ThumbsUp className="w-3 h-3" />
+                      <div className="flex items-center space-x-1.5 mt-1.5">
+                        <Button variant="ghost" size="sm" className="h-5 px-1.5">
+                          <ThumbsUp className="w-2.5 h-2.5" />
                         </Button>
-                        <Button variant="ghost" size="sm" className="h-6 px-2">
-                          <ThumbsDown className="w-3 h-3" />
+                        <Button variant="ghost" size="sm" className="h-5 px-1.5">
+                          <ThumbsDown className="w-2.5 h-2.5" />
                         </Button>
-                        <Button variant="ghost" size="sm" className="h-6 px-2">
-                          <Copy className="w-3 h-3" />
+                        <Button variant="ghost" size="sm" className="h-5 px-1.5">
+                          <Copy className="w-2.5 h-2.5" />
                         </Button>
                         <span className="text-xs text-gray-400 ml-2">
                           {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -364,7 +364,7 @@ export default function PaperAgent() {
                     )}
                     
                     {message.type === 'user' && (
-                      <div className="flex justify-end mt-2">
+                      <div className="flex justify-end mt-1.5">
                         <span className="text-xs text-gray-400">
                           {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
@@ -375,21 +375,21 @@ export default function PaperAgent() {
               ))}
               
               {isLoading && (
-                <div className="flex justify-start mr-12">
+                <div className="flex justify-start mr-8">
                   <div className="max-w-2xl">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
-                        <Sparkles className="w-3 h-3 text-white animate-pulse" />
+                    <div className="flex items-center space-x-2 mb-1.5">
+                      <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center">
+                        <Sparkles className="w-2.5 h-2.5 text-white animate-pulse" />
                       </div>
                       <span className="text-xs font-medium text-gray-600">Research Assistant</span>
                     </div>
                     <Card className="bg-white border-gray-200">
-                      <CardContent className="p-4">
+                      <CardContent className="p-3">
                         <div className="flex items-center space-x-2">
                           <div className="flex space-x-1">
-                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                            <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></div>
+                            <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                            <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                           </div>
                           <span className="text-xs text-gray-500">Analyzing paper...</span>
                         </div>
@@ -405,16 +405,16 @@ export default function PaperAgent() {
 
           {/* Suggested Questions */}
           {messages.length === 1 && (
-            <div className="border-t border-gray-200 bg-white px-6 py-4">
+            <div className="border-t border-gray-200 bg-white px-4 py-3">
               <div className="max-w-4xl mx-auto">
-                <h3 className="text-sm font-medium text-gray-900 mb-3">Suggested questions</h3>
-                <div className="grid grid-cols-2 gap-2">
+                <h3 className="text-sm font-medium text-gray-900 mb-2">Suggested questions</h3>
+                <div className="grid grid-cols-2 gap-1.5">
                   {suggestedQuestions.map((question, index) => (
                     <Button
                       key={index}
                       variant="outline"
                       size="sm"
-                      className="justify-start text-left h-auto py-2 px-3"
+                      className="justify-start text-left h-auto py-1.5 px-2.5"
                       onClick={() => setInputValue(question)}
                     >
                       <span className="text-xs">{question}</span>
@@ -426,9 +426,9 @@ export default function PaperAgent() {
           )}
 
           {/* Input Area */}
-          <div className="border-t border-gray-200 bg-white p-6">
+          <div className="border-t border-gray-200 bg-white p-4">
             <div className="max-w-4xl mx-auto">
-              <div className="flex items-end space-x-3">
+              <div className="flex items-end space-x-2">
                 <div className="flex-1">
                   <Textarea
                     ref={inputRef}
@@ -444,11 +444,12 @@ export default function PaperAgent() {
                   onClick={handleSendMessage}
                   disabled={!inputValue.trim() || isLoading}
                   className="bg-blue-600 hover:bg-blue-700"
+                  size="sm"
                 >
-                  <Send className="w-4 h-4" />
+                  <Send className="w-3.5 h-3.5" />
                 </Button>
               </div>
-              <p className="text-xs text-gray-500 mt-2">
+              <p className="text-xs text-gray-500 mt-1.5">
                 Press Enter to send, Shift+Enter for new line
               </p>
             </div>

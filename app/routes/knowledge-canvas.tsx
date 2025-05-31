@@ -1,385 +1,335 @@
 import type { MetaFunction } from "@remix-run/node";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "@remix-run/react";
-import ReactFlow, {
-  Node,
-  Edge,
-  addEdge,
-  Background,
-  Controls,
-  MiniMap,
-  useNodesState,
-  useEdgesState,
-  Connection,
-  Panel,
-  MarkerType,
-  BackgroundVariant,
-} from 'reactflow';
-import 'reactflow/dist/style.css';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Search, Plus, Eye, MessageCircle, Network, Download, Settings, Sparkles, FileText, Users, Zap, Maximize2, User, Calendar, Tag } from "lucide-react";
+import { ArrowLeft, Search, Plus, Eye, MessageCircle, Network, Download, Settings, Sparkles, FileText, Users, Zap, Calendar, MoreVertical, Edit, Trash2 } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Badge } from "~/components/ui/badge";
-import { Separator } from "~/components/ui/separator";
 import { cn } from '~/lib/utils';
+import { AuthGuard, useAuth } from "~/components/auth-guard";
+import { Navigation } from "~/components/ui/navigation";
+import supabase from "~/lib/supabase.client";
 
 export const meta: MetaFunction = () => {
   return [
-    { title: "Knowledge Canvas - DataEngineX" },
-    { name: "description", content: "Visualize and explore connections between research papers" },
+    { title: "Knowledge Canvas - DelphiX" },
+    { name: "description", content: "Manage your research knowledge bases and visualizations" },
   ];
 };
 
-// Custom node component with modern design
-const CustomNode = ({ data }: { data: any }) => {
-  return (
-    <motion.div
-      initial={{ scale: 0.8, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ duration: 0.3 }}
-      className={cn(
-        "px-4 py-3 rounded-xl min-w-[250px]",
-        "bg-white/[0.05] backdrop-blur-sm border border-white/[0.1]",
-        "hover:bg-white/[0.08] hover:border-white/[0.2]",
-        "transition-all duration-300 cursor-pointer",
-        "shadow-lg shadow-black/10"
-      )}
-    >
-      <div className="flex items-start gap-3">
-        <div className={cn(
-          "p-2 rounded-lg",
-          data.type === 'main' 
-            ? "bg-gradient-to-br from-indigo-500/20 to-rose-500/20" 
-            : "bg-white/[0.05]"
-        )}>
-          <FileText className="h-4 w-4 text-white/80" />
-        </div>
-        <div className="flex-1">
-          <h3 className="font-semibold text-white text-sm mb-1 line-clamp-2">
-            {data.label}
-          </h3>
-          {data.authors && (
-            <p className="text-white/40 text-xs flex items-center gap-1 mb-1">
-              <User className="h-3 w-3" />
-              {data.authors}
-            </p>
-          )}
-          {data.year && (
-            <p className="text-white/40 text-xs flex items-center gap-1">
-              <Calendar className="h-3 w-3" />
-              {data.year}
-            </p>
-          )}
-          {data.citations && (
-            <div className="mt-2 flex items-center gap-2">
-              <span className="text-xs px-2 py-1 rounded-full bg-indigo-500/20 text-indigo-300">
-                {data.citations} citations
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
-    </motion.div>
-  );
-};
-
-const nodeTypes = {
-  custom: CustomNode,
-};
-
-const initialNodes: Node[] = [
+// Mock knowledge bases for demo
+const mockKnowledgeBases = [
   {
-    id: '1',
-    type: 'custom',
-    position: { x: 400, y: 200 },
-    data: { 
-      label: 'Attention Is All You Need',
-      authors: 'Vaswani et al.',
-      year: '2017',
-      citations: '50k+',
-      type: 'main'
-    },
+    id: "1",
+    name: "Transformer Architecture Research",
+    description: "Comprehensive study of transformer models and their applications",
+    paper_count: 24,
+    created_at: "2024-01-15T10:30:00Z",
+    updated_at: "2024-01-20T14:45:00Z",
+    tags: ["Transformers", "NLP", "Attention Mechanism"],
+    status: "active"
   },
   {
-    id: '2',
-    type: 'custom',
-    position: { x: 100, y: 100 },
-    data: { 
-      label: 'BERT: Pre-training of Deep Bidirectional Transformers',
-      authors: 'Devlin et al.',
-      year: '2018',
-      citations: '35k+'
-    },
+    id: "2", 
+    name: "Computer Vision Fundamentals",
+    description: "Core papers and concepts in computer vision and image processing",
+    paper_count: 18,
+    created_at: "2024-01-10T09:15:00Z",
+    updated_at: "2024-01-18T16:20:00Z",
+    tags: ["Computer Vision", "CNNs", "Image Processing"],
+    status: "active"
   },
   {
-    id: '3',
-    type: 'custom',
-    position: { x: 700, y: 100 },
-    data: { 
-      label: 'GPT-3: Language Models are Few-Shot Learners',
-      authors: 'Brown et al.',
-      year: '2020',
-      citations: '30k+'
-    },
-  },
-  {
-    id: '4',
-    type: 'custom',
-    position: { x: 100, y: 300 },
-    data: { 
-      label: 'RoBERTa: A Robustly Optimized BERT',
-      authors: 'Liu et al.',
-      year: '2019',
-      citations: '15k+'
-    },
-  },
-  {
-    id: '5',
-    type: 'custom',
-    position: { x: 700, y: 300 },
-    data: { 
-      label: 'T5: Text-to-Text Transfer Transformer',
-      authors: 'Raffel et al.',
-      year: '2019',
-      citations: '20k+'
-    },
-  },
-];
-
-const initialEdges: Edge[] = [
-  { 
-    id: 'e1-2', 
-    source: '1', 
-    target: '2', 
-    animated: true,
-    style: { stroke: '#6366f1', strokeWidth: 2 },
-    markerEnd: { type: MarkerType.ArrowClosed, color: '#6366f1' }
-  },
-  { 
-    id: 'e1-3', 
-    source: '1', 
-    target: '3',
-    animated: true,
-    style: { stroke: '#6366f1', strokeWidth: 2 },
-    markerEnd: { type: MarkerType.ArrowClosed, color: '#6366f1' }
-  },
-  { 
-    id: 'e2-4', 
-    source: '2', 
-    target: '4',
-    style: { stroke: '#6366f1', strokeWidth: 2 },
-    markerEnd: { type: MarkerType.ArrowClosed, color: '#6366f1' }
-  },
-  { 
-    id: 'e1-5', 
-    source: '1', 
-    target: '5',
-    style: { stroke: '#6366f1', strokeWidth: 2 },
-    markerEnd: { type: MarkerType.ArrowClosed, color: '#6366f1' }
-  },
+    id: "3",
+    name: "Reinforcement Learning Survey",
+    description: "Survey of modern reinforcement learning techniques and applications",
+    paper_count: 31,
+    created_at: "2024-01-05T11:00:00Z",
+    updated_at: "2024-01-22T13:30:00Z",
+    tags: ["RL", "Policy Learning", "Q-Learning"],
+    status: "draft"
+  }
 ];
 
 export default function KnowledgeCanvas() {
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-  const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+  const { user } = useAuth();
+  const [knowledgeBases, setKnowledgeBases] = useState<typeof mockKnowledgeBases>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [filteredKnowledgeBases, setFilteredKnowledgeBases] = useState<typeof mockKnowledgeBases>([]);
 
-  const onConnect = useCallback(
-    (params: Connection) => setEdges((eds) => addEdge({
-      ...params,
-      animated: true,
-      style: { stroke: '#6366f1', strokeWidth: 2 },
-      markerEnd: { type: MarkerType.ArrowClosed, color: '#6366f1' }
-    }, eds)),
-    [setEdges]
-  );
+  useEffect(() => {
+    if (user) {
+      loadKnowledgeBases();
+    }
+  }, [user]);
 
-  const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
-    setSelectedNode(node);
-  }, []);
+  useEffect(() => {
+    // Filter knowledge bases based on search query
+    const filtered = knowledgeBases.filter(kb => 
+      kb.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      kb.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      kb.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+    );
+    setFilteredKnowledgeBases(filtered);
+  }, [searchQuery, knowledgeBases]);
 
-  const onPaneClick = useCallback(() => {
-    setSelectedNode(null);
-  }, []);
+  const loadKnowledgeBases = async () => {
+    if (!user) return;
 
-  const handleSearch = () => {
-    // Implement search functionality
-    console.log('Searching for:', searchQuery);
+    try {
+      setLoading(true);
+      
+      // Try to get knowledge bases from database
+      try {
+        const { data: kbData } = await supabase
+          .from('knowledge_bases')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('updated_at', { ascending: false });
+        
+        if (kbData && kbData.length > 0) {
+          setKnowledgeBases(kbData);
+        } else {
+          // Use mock data if no knowledge bases exist
+          setKnowledgeBases(mockKnowledgeBases);
+        }
+      } catch (error) {
+        console.log('Knowledge bases table not available, using mock data:', error);
+        setKnowledgeBases(mockKnowledgeBases);
+      }
+    } catch (error) {
+      console.error('Error loading knowledge bases:', error);
+      setKnowledgeBases(mockKnowledgeBases);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateNew = () => {
+    // TODO: Implement create new knowledge base
+    console.log("Creating new knowledge base");
+  };
+
+  const handleEdit = (id: string) => {
+    // TODO: Implement edit knowledge base
+    console.log("Editing knowledge base:", id);
+  };
+
+  const handleDelete = (id: string) => {
+    // TODO: Implement delete knowledge base
+    console.log("Deleting knowledge base:", id);
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
   };
 
   return (
-    <div className="min-h-screen bg-[#030303] relative">
-      {/* Header */}
-      <motion.div
-        initial={{ y: -20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.5 }}
-        className="absolute top-0 left-0 right-0 z-10 p-6"
-      >
-        <div className="flex items-center justify-between gap-4 max-w-7xl mx-auto">
-          <div className="flex items-center gap-4 flex-1">
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-gradient-to-br from-indigo-500/20 to-rose-500/20 rounded-lg">
-                <Network className="h-5 w-5 text-white" />
-              </div>
-              <h1 className="text-xl font-semibold text-white">Knowledge Canvas</h1>
-            </div>
-            
-            {/* Search Bar */}
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-white/40 h-4 w-4" />
-              <input
-                type="text"
-                placeholder="Search papers in canvas..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                className={cn(
-                  "w-full pl-10 pr-4 py-2 rounded-lg",
-                  "bg-white/[0.05] backdrop-blur-sm border border-white/[0.1]",
-                  "text-white placeholder:text-white/40 text-sm",
-                  "focus:outline-none focus:bg-white/[0.08] focus:border-white/[0.2]",
-                  "transition-all duration-300"
-                )}
-              />
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2">
-            <button className={cn(
-              "p-2 rounded-lg",
-              "bg-white/[0.05] hover:bg-white/[0.08]",
-              "border border-white/[0.1] hover:border-white/[0.2]",
-              "text-white/60 hover:text-white",
-              "transition-all duration-300"
-            )}>
-              <Download className="h-4 w-4" />
-            </button>
-            <button className={cn(
-              "p-2 rounded-lg",
-              "bg-white/[0.05] hover:bg-white/[0.08]",
-              "border border-white/[0.1] hover:border-white/[0.2]",
-              "text-white/60 hover:text-white",
-              "transition-all duration-300"
-            )}>
-              <Maximize2 className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* ReactFlow Canvas */}
-      <div className="h-screen w-full">
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          onNodeClick={onNodeClick}
-          onPaneClick={onPaneClick}
-          nodeTypes={nodeTypes}
-          fitView
-          className="bg-[#030303]"
-        >
-          <Background 
-            color="#ffffff10" 
-            variant={BackgroundVariant.Dots}
-            gap={20}
-            size={1}
-          />
-          <Controls 
-            className="!bg-white/[0.05] !border-white/[0.1] !shadow-xl"
-            showZoom={true}
-            showFitView={true}
-            showInteractive={false}
-          />
-        </ReactFlow>
-      </div>
-
-      {/* Selected Node Details */}
-      {selectedNode && (
-        <motion.div
-          initial={{ x: 400, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          exit={{ x: 400, opacity: 0 }}
-          transition={{ duration: 0.3 }}
-          className="absolute right-0 top-20 bottom-0 w-96 p-6 bg-white/[0.03] backdrop-blur-md border-l border-white/[0.1]"
-        >
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold text-white">Paper Details</h2>
-            <button
-              onClick={() => setSelectedNode(null)}
-              className="text-white/40 hover:text-white transition-colors"
+    <AuthGuard>
+      <>
+        <Navigation user={user} />
+        <div className="min-h-screen bg-[#030303] pt-20">
+          <div className="container mx-auto px-4 py-8 max-w-6xl">
+            {/* Header */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="mb-8"
             >
-              ✕
-            </button>
-          </div>
-          
-          <div className="space-y-4">
-            <div>
-              <h3 className="text-white font-medium mb-2">{selectedNode.data.label}</h3>
-              <p className="text-white/60 text-sm">{selectedNode.data.authors}</p>
-              <p className="text-white/60 text-sm">{selectedNode.data.year}</p>
-            </div>
-            
-            <div className="flex flex-wrap gap-2">
-              <span className="px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-xs">
-                {selectedNode.data.citations} citations
-              </span>
-              <span className="px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 text-xs">
-                Deep Learning
-              </span>
-              <span className="px-3 py-1 rounded-full bg-violet-500/20 text-violet-300 text-xs">
-                NLP
-              </span>
-            </div>
-            
-            <div className="pt-4 space-y-3">
-              <button className={cn(
-                "w-full px-4 py-2 rounded-lg font-medium text-sm",
-                "bg-gradient-to-r from-indigo-500 to-rose-500",
-                "text-white shadow-lg shadow-indigo-500/25",
-                "hover:shadow-xl hover:shadow-indigo-500/30",
-                "transition-all duration-300"
-              )}>
-                Chat with Paper Agent
-              </button>
-              <button className={cn(
-                "w-full px-4 py-2 rounded-lg font-medium text-sm",
-                "bg-white/[0.05] hover:bg-white/[0.08]",
-                "border border-white/[0.1] hover:border-white/[0.2]",
-                "text-white transition-all duration-300"
-              )}>
-                View Full Paper
-              </button>
-            </div>
-          </div>
-        </motion.div>
-      )}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-3xl font-bold text-white mb-2">
+                    Knowledge Canvas
+                  </h1>
+                  <p className="text-white/60">
+                    Manage your research knowledge bases and visualizations
+                  </p>
+                </div>
+                <Button
+                  onClick={handleCreateNew}
+                  className="bg-gradient-to-r from-indigo-500 to-rose-500 text-white"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create New
+                </Button>
+              </div>
+            </motion.div>
 
-      {/* Stats Overlay */}
-      <motion.div
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.5, delay: 0.2 }}
-        className="absolute bottom-6 left-6 bg-white/[0.05] backdrop-blur-sm border border-white/[0.1] rounded-lg p-4"
-      >
-        <div className="flex items-center gap-6 text-sm">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-indigo-400"></div>
-            <span className="text-white/60">{nodes.length} Papers</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-rose-400"></div>
-            <span className="text-white/60">{edges.length} Connections</span>
+            {/* Search and Filters */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+              className="mb-6"
+            >
+              <div className="flex gap-4">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/40 h-4 w-4" />
+                  <Input
+                    placeholder="Search knowledge bases..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className={cn(
+                      "pl-10",
+                      "bg-white/[0.05] border-white/[0.1] text-white placeholder:text-white/40",
+                      "focus:bg-white/[0.08] focus:border-white/[0.2]"
+                    )}
+                  />
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Knowledge Bases Grid */}
+            {loading ? (
+              <div className="text-center py-12">
+                <div className="inline-flex items-center gap-3 text-white/60">
+                  <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                  <span>Loading knowledge bases...</span>
+                </div>
+              </div>
+            ) : filteredKnowledgeBases.length > 0 ? (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.2 }}
+                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+              >
+                {filteredKnowledgeBases.map((kb) => (
+                  <Card key={kb.id} className="bg-white/[0.02] border-white/[0.08] hover:bg-white/[0.04] transition-all duration-300 group">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <CardTitle className="text-white text-lg font-semibold line-clamp-1 mb-1">
+                            {kb.name}
+                          </CardTitle>
+                          <CardDescription className="text-white/60 text-sm line-clamp-2">
+                            {kb.description}
+                          </CardDescription>
+                        </div>
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-white/60 hover:text-white">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="space-y-3">
+                        {/* Stats */}
+                        <div className="flex items-center gap-4 text-sm text-white/60">
+                          <div className="flex items-center gap-1">
+                            <FileText className="h-3 w-3" />
+                            <span>{kb.paper_count} papers</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            <span>{formatDate(kb.updated_at)}</span>
+                          </div>
+                        </div>
+
+                        {/* Tags */}
+                        <div className="flex flex-wrap gap-1">
+                          {kb.tags.slice(0, 3).map((tag) => (
+                            <Badge 
+                              key={tag}
+                              variant="outline"
+                              className="text-xs border-white/[0.1] text-white/60"
+                            >
+                              {tag}
+                            </Badge>
+                          ))}
+                          {kb.tags.length > 3 && (
+                            <Badge 
+                              variant="outline"
+                              className="text-xs border-white/[0.1] text-white/60"
+                            >
+                              +{kb.tags.length - 3}
+                            </Badge>
+                          )}
+                        </div>
+
+                        {/* Status */}
+                        <div className="flex items-center justify-between">
+                          <Badge 
+                            className={cn(
+                              "text-xs",
+                              kb.status === 'active' 
+                                ? "bg-green-500/20 text-green-300 border-green-500/30" 
+                                : "bg-yellow-500/20 text-yellow-300 border-yellow-500/30"
+                            )}
+                          >
+                            {kb.status}
+                          </Badge>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex gap-2 pt-2">
+                          <Button
+                            size="sm"
+                            className="flex-1 bg-gradient-to-r from-indigo-500 to-rose-500 text-white"
+                          >
+                            <Eye className="h-3 w-3 mr-1" />
+                            View
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="bg-white/[0.02] border-white/[0.1] text-white hover:bg-white/[0.05]"
+                            onClick={() => handleEdit(kb.id)}
+                          >
+                            <Edit className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="bg-white/[0.02] border-white/[0.1] text-white hover:bg-white/[0.05]"
+                            onClick={() => handleDelete(kb.id)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </motion.div>
+            ) : (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.2 }}
+                className="text-center py-16"
+              >
+                <Network className="h-16 w-16 text-white/40 mx-auto mb-6" />
+                <h2 className="text-2xl font-semibold text-white mb-2">
+                  {searchQuery ? "No knowledge bases found" : "Create Your First Knowledge Base"}
+                </h2>
+                <p className="text-white/60 mb-8 max-w-lg mx-auto">
+                  {searchQuery 
+                    ? "Try adjusting your search terms or create a new knowledge base." 
+                    : "Start building your research knowledge by creating collections of related papers and concepts."
+                  }
+                </p>
+                <Button
+                  onClick={handleCreateNew}
+                  className="bg-gradient-to-r from-indigo-500 to-rose-500 text-white"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Knowledge Base
+                </Button>
+              </motion.div>
+            )}
           </div>
         </div>
-      </motion.div>
-    </div>
+      </>
+    </AuthGuard>
   );
 } 
