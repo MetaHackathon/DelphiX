@@ -1,5 +1,5 @@
 import type { MetaFunction } from "@remix-run/node";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Link } from "@remix-run/react";
 import ReactFlow, {
   Node,
@@ -12,15 +12,18 @@ import ReactFlow, {
   useEdgesState,
   Connection,
   Panel,
+  MarkerType,
+  BackgroundVariant,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
-
-import { ArrowLeft, Search, Plus, Eye, MessageCircle, Network, Download, Settings, Sparkles, FileText, Users, Zap } from "lucide-react";
+import { motion } from 'framer-motion';
+import { ArrowLeft, Search, Plus, Eye, MessageCircle, Network, Download, Settings, Sparkles, FileText, Users, Zap, Maximize2, User, Calendar, Tag } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Badge } from "~/components/ui/badge";
 import { Separator } from "~/components/ui/separator";
+import { cn } from '~/lib/utils';
 
 export const meta: MetaFunction = () => {
   return [
@@ -29,126 +32,153 @@ export const meta: MetaFunction = () => {
   ];
 };
 
-// Custom Paper Node Component
-const PaperNode = ({ data, selected }: { data: any; selected: boolean }) => {
+// Custom node component with modern design
+const CustomNode = ({ data }: { data: any }) => {
   return (
-    <Card className={`w-64 transition-all duration-200 ${
-      selected 
-        ? 'ring-2 ring-blue-500 shadow-lg' 
-        : 'hover:shadow-md border-gray-200'
-    }`}>
-      <CardHeader className="pb-2">
-        <div className="flex items-start space-x-2">
-          <div className={`w-3 h-3 rounded-full mt-1 ${data.color}`} />
-          <div className="flex-1 min-w-0">
-            <CardTitle className="text-sm font-medium leading-tight line-clamp-2">
-              {data.title}
-            </CardTitle>
-            <CardDescription className="text-xs mt-1">
-              {data.authors.join(', ')}
-            </CardDescription>
-          </div>
+    <motion.div
+      initial={{ scale: 0.8, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ duration: 0.3 }}
+      className={cn(
+        "px-4 py-3 rounded-xl min-w-[250px]",
+        "bg-white/[0.05] backdrop-blur-sm border border-white/[0.1]",
+        "hover:bg-white/[0.08] hover:border-white/[0.2]",
+        "transition-all duration-300 cursor-pointer",
+        "shadow-lg shadow-black/10"
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <div className={cn(
+          "p-2 rounded-lg",
+          data.type === 'main' 
+            ? "bg-gradient-to-br from-indigo-500/20 to-rose-500/20" 
+            : "bg-white/[0.05]"
+        )}>
+          <FileText className="h-4 w-4 text-white/80" />
         </div>
-      </CardHeader>
-      <CardContent className="pt-0">
-        <div className="flex flex-wrap gap-1">
-          {data.topics.slice(0, 2).map((topic: string) => (
-            <Badge key={topic} variant="secondary" className="text-xs px-1 py-0">
-              {topic}
-            </Badge>
-          ))}
-          {data.topics.length > 2 && (
-            <Badge variant="outline" className="text-xs px-1 py-0">
-              +{data.topics.length - 2}
-            </Badge>
+        <div className="flex-1">
+          <h3 className="font-semibold text-white text-sm mb-1 line-clamp-2">
+            {data.label}
+          </h3>
+          {data.authors && (
+            <p className="text-white/40 text-xs flex items-center gap-1 mb-1">
+              <User className="h-3 w-3" />
+              {data.authors}
+            </p>
+          )}
+          {data.year && (
+            <p className="text-white/40 text-xs flex items-center gap-1">
+              <Calendar className="h-3 w-3" />
+              {data.year}
+            </p>
+          )}
+          {data.citations && (
+            <div className="mt-2 flex items-center gap-2">
+              <span className="text-xs px-2 py-1 rounded-full bg-indigo-500/20 text-indigo-300">
+                {data.citations} citations
+              </span>
+            </div>
           )}
         </div>
-        <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
-          <span>{data.year}</span>
-          <span>{data.citations?.toLocaleString()} citations</span>
-        </div>
-      </CardContent>
-    </Card>
+      </div>
+    </motion.div>
   );
 };
 
 const nodeTypes = {
-  paperNode: PaperNode,
+  custom: CustomNode,
 };
 
 const initialNodes: Node[] = [
   {
-    id: 'attention',
-    type: 'paperNode',
+    id: '1',
+    type: 'custom',
     position: { x: 400, y: 200 },
-    data: {
-      title: 'Attention Is All You Need',
-      authors: ['Vaswani et al.'],
-      topics: ['transformers', 'attention', 'nlp'],
-      year: 2017,
-      citations: 50000,
-      color: 'bg-blue-500',
+    data: { 
+      label: 'Attention Is All You Need',
+      authors: 'Vaswani et al.',
+      year: '2017',
+      citations: '50k+',
+      type: 'main'
     },
   },
   {
-    id: 'bert',
-    type: 'paperNode',
+    id: '2',
+    type: 'custom',
     position: { x: 100, y: 100 },
-    data: {
-      title: 'BERT: Pre-training of Deep Bidirectional Transformers',
-      authors: ['Devlin et al.'],
-      topics: ['bert', 'pretraining', 'nlp'],
-      year: 2018,
-      citations: 35000,
-      color: 'bg-green-500',
+    data: { 
+      label: 'BERT: Pre-training of Deep Bidirectional Transformers',
+      authors: 'Devlin et al.',
+      year: '2018',
+      citations: '35k+'
     },
   },
   {
-    id: 'gpt',
-    type: 'paperNode',
+    id: '3',
+    type: 'custom',
     position: { x: 700, y: 100 },
-    data: {
-      title: 'Language Models are Unsupervised Multitask Learners',
-      authors: ['Radford et al.'],
-      topics: ['gpt', 'language models', 'generation'],
-      year: 2019,
-      citations: 25000,
-      color: 'bg-amber-500',
+    data: { 
+      label: 'GPT-3: Language Models are Few-Shot Learners',
+      authors: 'Brown et al.',
+      year: '2020',
+      citations: '30k+'
     },
   },
   {
-    id: 'roberta',
-    type: 'paperNode',
-    position: { x: 50, y: 350 },
-    data: {
-      title: 'RoBERTa: A Robustly Optimized BERT Pretraining Approach',
-      authors: ['Liu et al.'],
-      topics: ['roberta', 'optimization', 'nlp'],
-      year: 2019,
-      citations: 15000,
-      color: 'bg-purple-500',
+    id: '4',
+    type: 'custom',
+    position: { x: 100, y: 300 },
+    data: { 
+      label: 'RoBERTa: A Robustly Optimized BERT',
+      authors: 'Liu et al.',
+      year: '2019',
+      citations: '15k+'
     },
   },
   {
-    id: 'gpt3',
-    type: 'paperNode',
-    position: { x: 750, y: 350 },
-    data: {
-      title: 'Language Models are Few-Shot Learners',
-      authors: ['Brown et al.'],
-      topics: ['gpt-3', 'few-shot', 'scale'],
-      year: 2020,
-      citations: 30000,
-      color: 'bg-red-500',
+    id: '5',
+    type: 'custom',
+    position: { x: 700, y: 300 },
+    data: { 
+      label: 'T5: Text-to-Text Transfer Transformer',
+      authors: 'Raffel et al.',
+      year: '2019',
+      citations: '20k+'
     },
   },
 ];
 
 const initialEdges: Edge[] = [
-  { id: 'e1-2', source: 'attention', target: 'bert', type: 'smoothstep', animated: true },
-  { id: 'e1-3', source: 'attention', target: 'gpt', type: 'smoothstep', animated: true },
-  { id: 'e2-4', source: 'bert', target: 'roberta', type: 'smoothstep' },
-  { id: 'e3-5', source: 'gpt', target: 'gpt3', type: 'smoothstep' },
+  { 
+    id: 'e1-2', 
+    source: '1', 
+    target: '2', 
+    animated: true,
+    style: { stroke: '#6366f1', strokeWidth: 2 },
+    markerEnd: { type: MarkerType.ArrowClosed, color: '#6366f1' }
+  },
+  { 
+    id: 'e1-3', 
+    source: '1', 
+    target: '3',
+    animated: true,
+    style: { stroke: '#6366f1', strokeWidth: 2 },
+    markerEnd: { type: MarkerType.ArrowClosed, color: '#6366f1' }
+  },
+  { 
+    id: 'e2-4', 
+    source: '2', 
+    target: '4',
+    style: { stroke: '#6366f1', strokeWidth: 2 },
+    markerEnd: { type: MarkerType.ArrowClosed, color: '#6366f1' }
+  },
+  { 
+    id: 'e1-5', 
+    source: '1', 
+    target: '5',
+    style: { stroke: '#6366f1', strokeWidth: 2 },
+    markerEnd: { type: MarkerType.ArrowClosed, color: '#6366f1' }
+  },
 ];
 
 export default function KnowledgeCanvas() {
@@ -158,7 +188,12 @@ export default function KnowledgeCanvas() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const onConnect = useCallback(
-    (params: Connection) => setEdges((eds) => addEdge(params, eds)),
+    (params: Connection) => setEdges((eds) => addEdge({
+      ...params,
+      animated: true,
+      style: { stroke: '#6366f1', strokeWidth: 2 },
+      markerEnd: { type: MarkerType.ArrowClosed, color: '#6366f1' }
+    }, eds)),
     [setEdges]
   );
 
@@ -170,250 +205,181 @@ export default function KnowledgeCanvas() {
     setSelectedNode(null);
   }, []);
 
+  const handleSearch = () => {
+    // Implement search functionality
+    console.log('Searching for:', searchQuery);
+  };
+
   return (
-    <div className="h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-[#030303] relative">
       {/* Header */}
-      <div className="border-b border-gray-200 bg-white px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Link to="/">
-              <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-900">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
-            </Link>
-            <Separator orientation="vertical" className="h-6" />
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <Network className="w-4 h-4 text-white" />
+      <motion.div
+        initial={{ y: -20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.5 }}
+        className="absolute top-0 left-0 right-0 z-10 p-6"
+      >
+        <div className="flex items-center justify-between gap-4 max-w-7xl mx-auto">
+          <div className="flex items-center gap-4 flex-1">
+            <div className="flex items-center gap-2">
+              <div className="p-2 bg-gradient-to-br from-indigo-500/20 to-rose-500/20 rounded-lg">
+                <Network className="h-5 w-5 text-white" />
               </div>
-              <div>
-                <h1 className="text-lg font-semibold text-gray-900">Knowledge Canvas</h1>
-                <p className="text-xs text-gray-500">Research Paper Network</p>
-              </div>
+              <h1 className="text-xl font-semibold text-white">Knowledge Canvas</h1>
             </div>
-          </div>
-          
-          <div className="flex items-center space-x-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                placeholder="Search papers..."
+            
+            {/* Search Bar */}
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-white/40 h-4 w-4" />
+              <input
+                type="text"
+                placeholder="Search papers in canvas..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 w-64"
+                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                className={cn(
+                  "w-full pl-10 pr-4 py-2 rounded-lg",
+                  "bg-white/[0.05] backdrop-blur-sm border border-white/[0.1]",
+                  "text-white placeholder:text-white/40 text-sm",
+                  "focus:outline-none focus:bg-white/[0.08] focus:border-white/[0.2]",
+                  "transition-all duration-300"
+                )}
               />
             </div>
-            <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Papers
-            </Button>
-            <Button variant="outline" size="sm">
-              <Settings className="w-4 h-4" />
-            </Button>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex items-center gap-2">
+            <button className={cn(
+              "p-2 rounded-lg",
+              "bg-white/[0.05] hover:bg-white/[0.08]",
+              "border border-white/[0.1] hover:border-white/[0.2]",
+              "text-white/60 hover:text-white",
+              "transition-all duration-300"
+            )}>
+              <Download className="h-4 w-4" />
+            </button>
+            <button className={cn(
+              "p-2 rounded-lg",
+              "bg-white/[0.05] hover:bg-white/[0.08]",
+              "border border-white/[0.1] hover:border-white/[0.2]",
+              "text-white/60 hover:text-white",
+              "transition-all duration-300"
+            )}>
+              <Maximize2 className="h-4 w-4" />
+            </button>
           </div>
         </div>
+      </motion.div>
+
+      {/* ReactFlow Canvas */}
+      <div className="h-screen w-full">
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          onNodeClick={onNodeClick}
+          onPaneClick={onPaneClick}
+          nodeTypes={nodeTypes}
+          fitView
+          className="bg-[#030303]"
+        >
+          <Background 
+            color="#ffffff10" 
+            variant={BackgroundVariant.Dots}
+            gap={20}
+            size={1}
+          />
+          <Controls 
+            className="!bg-white/[0.05] !border-white/[0.1] !shadow-xl"
+            showZoom={true}
+            showFitView={true}
+            showInteractive={false}
+          />
+        </ReactFlow>
       </div>
 
-      <div className="flex-1 flex">
-        {/* Main Canvas */}
-        <div className="flex-1 relative">
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            onNodeClick={onNodeClick}
-            onPaneClick={onPaneClick}
-            nodeTypes={nodeTypes}
-            fitView
-            attributionPosition="bottom-left"
-            className="bg-white"
-          >
-            <Background color="#f1f5f9" gap={20} />
-            <Controls 
-              position="bottom-right"
-              className="bg-white border border-gray-200 rounded-lg shadow-sm"
-            />
-            <MiniMap 
-              position="bottom-left"
-              className="bg-white border border-gray-200 rounded-lg shadow-sm"
-              maskColor="rgb(240, 242, 247, 0.8)"
-            />
+      {/* Selected Node Details */}
+      {selectedNode && (
+        <motion.div
+          initial={{ x: 400, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          exit={{ x: 400, opacity: 0 }}
+          transition={{ duration: 0.3 }}
+          className="absolute right-0 top-20 bottom-0 w-96 p-6 bg-white/[0.03] backdrop-blur-md border-l border-white/[0.1]"
+        >
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-semibold text-white">Paper Details</h2>
+            <button
+              onClick={() => setSelectedNode(null)}
+              className="text-white/40 hover:text-white transition-colors"
+            >
+              ✕
+            </button>
+          </div>
+          
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-white font-medium mb-2">{selectedNode.data.label}</h3>
+              <p className="text-white/60 text-sm">{selectedNode.data.authors}</p>
+              <p className="text-white/60 text-sm">{selectedNode.data.year}</p>
+            </div>
             
-            {/* Stats Panel */}
-            <Panel position="top-left" className="m-4">
-              <Card className="w-64">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium">Network Overview</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="flex items-center space-x-2">
-                      <FileText className="w-4 h-4 text-blue-600" />
-                      <span className="text-gray-600">Papers</span>
-                    </div>
-                    <span className="font-medium">{nodes.length}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="flex items-center space-x-2">
-                      <Network className="w-4 h-4 text-green-600" />
-                      <span className="text-gray-600">Connections</span>
-                    </div>
-                    <span className="font-medium">{edges.length}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="flex items-center space-x-2">
-                      <Sparkles className="w-4 h-4 text-amber-500" />
-                      <span className="text-gray-600">Status</span>
-                    </div>
-                    <Badge variant="secondary" className="text-xs">
-                      Active
-                    </Badge>
-                  </div>
-                </CardContent>
-              </Card>
-            </Panel>
-          </ReactFlow>
-        </div>
-
-        {/* Side Panel */}
-        <div className="w-80 border-l border-gray-200 bg-white">
-          {selectedNode ? (
-            <div className="p-6">
-              <div className="space-y-6">
-                {/* Paper Details */}
-                <div>
-                  <div className="flex items-start space-x-3 mb-4">
-                    <div className={`w-4 h-4 rounded-full mt-1 ${selectedNode.data.color}`} />
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-lg font-semibold text-gray-900 leading-tight">
-                        {selectedNode.data.title}
-                      </h3>
-                      <p className="text-sm text-gray-600 mt-1">
-                        {selectedNode.data.authors.join(', ')}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {selectedNode.data.topics.map((topic: string) => (
-                      <Badge key={topic} variant="outline" className="text-xs">
-                        {topic}
-                      </Badge>
-                    ))}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-gray-500">Year</span>
-                      <p className="font-medium">{selectedNode.data.year}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Citations</span>
-                      <p className="font-medium">{selectedNode.data.citations?.toLocaleString()}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <Separator />
-
-                {/* Actions */}
-                <div className="space-y-3">
-                  <Link to={`/paper/${selectedNode.id}`}>
-                    <Button className="w-full bg-blue-600 hover:bg-blue-700">
-                      <Eye className="w-4 h-4 mr-2" />
-                      Open Paper Agent
-                    </Button>
-                  </Link>
-                  
-                  <Button variant="outline" className="w-full">
-                    <MessageCircle className="w-4 h-4 mr-2" />
-                    Ask Questions
-                  </Button>
-                  
-                  <Button variant="outline" className="w-full">
-                    <Download className="w-4 h-4 mr-2" />
-                    Download PDF
-                  </Button>
-                </div>
-
-                <Separator />
-
-                {/* Connected Papers */}
-                <div>
-                  <h4 className="text-sm font-medium text-gray-900 mb-3">Connected Papers</h4>
-                  <div className="space-y-2">
-                    {edges
-                      .filter(edge => edge.source === selectedNode.id || edge.target === selectedNode.id)
-                      .map(edge => {
-                        const connectedNodeId = edge.source === selectedNode.id ? edge.target : edge.source;
-                        const connectedNode = nodes.find(n => n.id === connectedNodeId);
-                        return connectedNode ? (
-                          <Card key={connectedNode.id} className="p-3 cursor-pointer hover:bg-gray-50 transition-colors">
-                            <div className="flex items-start space-x-2">
-                              <div className={`w-2 h-2 rounded-full mt-2 ${connectedNode.data.color}`} />
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-900 leading-tight">
-                                  {connectedNode.data.title}
-                                </p>
-                                <p className="text-xs text-gray-600 mt-1">
-                                  {connectedNode.data.authors.join(', ')}
-                                </p>
-                              </div>
-                            </div>
-                          </Card>
-                        ) : null;
-                      })}
-                  </div>
-                </div>
-              </div>
+            <div className="flex flex-wrap gap-2">
+              <span className="px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-xs">
+                {selectedNode.data.citations} citations
+              </span>
+              <span className="px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 text-xs">
+                Deep Learning
+              </span>
+              <span className="px-3 py-1 rounded-full bg-violet-500/20 text-violet-300 text-xs">
+                NLP
+              </span>
             </div>
-          ) : (
-            <div className="p-6 text-center">
-              <div className="w-16 h-16 bg-gray-100 rounded-xl flex items-center justify-center mx-auto mb-4">
-                <Network className="w-8 h-8 text-gray-400" />
-              </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Select a Paper</h3>
-              <p className="text-sm text-gray-600 mb-6 leading-relaxed">
-                Click on any paper node to explore its details, connections, and interact with it using AI.
-              </p>
-              
-              <div className="space-y-3">
-                <Button className="w-full bg-blue-600 hover:bg-blue-700">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Import Papers
-                </Button>
-                <Button variant="outline" className="w-full">
-                  <Search className="w-4 h-4 mr-2" />
-                  Search ArXiv
-                </Button>
-              </div>
-
-              <Separator className="my-6" />
-
-              <div className="text-left space-y-4">
-                <h4 className="text-sm font-medium text-gray-900">Quick Actions</h4>
-                <div className="space-y-2">
-                  <Button variant="ghost" size="sm" className="w-full justify-start">
-                    <Zap className="w-4 h-4 mr-2" />
-                    Auto-arrange layout
-                  </Button>
-                  <Button variant="ghost" size="sm" className="w-full justify-start">
-                    <Users className="w-4 h-4 mr-2" />
-                    Cluster by topic
-                  </Button>
-                  <Button variant="ghost" size="sm" className="w-full justify-start">
-                    <Download className="w-4 h-4 mr-2" />
-                    Export network
-                  </Button>
-                </div>
-              </div>
+            
+            <div className="pt-4 space-y-3">
+              <button className={cn(
+                "w-full px-4 py-2 rounded-lg font-medium text-sm",
+                "bg-gradient-to-r from-indigo-500 to-rose-500",
+                "text-white shadow-lg shadow-indigo-500/25",
+                "hover:shadow-xl hover:shadow-indigo-500/30",
+                "transition-all duration-300"
+              )}>
+                Chat with Paper Agent
+              </button>
+              <button className={cn(
+                "w-full px-4 py-2 rounded-lg font-medium text-sm",
+                "bg-white/[0.05] hover:bg-white/[0.08]",
+                "border border-white/[0.1] hover:border-white/[0.2]",
+                "text-white transition-all duration-300"
+              )}>
+                View Full Paper
+              </button>
             </div>
-          )}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Stats Overlay */}
+      <motion.div
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+        className="absolute bottom-6 left-6 bg-white/[0.05] backdrop-blur-sm border border-white/[0.1] rounded-lg p-4"
+      >
+        <div className="flex items-center gap-6 text-sm">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-indigo-400"></div>
+            <span className="text-white/60">{nodes.length} Papers</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-rose-400"></div>
+            <span className="text-white/60">{edges.length} Connections</span>
+          </div>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 } 

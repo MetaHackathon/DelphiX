@@ -1,20 +1,54 @@
 import type { MetaFunction } from "@remix-run/node";
+import { HeroGeometric } from "~/components/ui/shape-landing-hero";
+import { motion } from "framer-motion";
+import { ArrowRight, Search, Network, MessageCircle, Sparkles, Brain, FileText, Users, BookOpen } from "lucide-react";
+import { cn } from "~/lib/utils";
 import { useState } from "react";
 import { Link } from "@remix-run/react";
-import { Search, ArrowRight, FileText, Network, MessageCircle, Sparkles, TrendingUp, Users, BookOpen, Zap, ChevronRight, Star } from "lucide-react";
-import { Button } from "~/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
-import { Input } from "~/components/ui/input";
-import { Badge } from "~/components/ui/badge";
 
 export const meta: MetaFunction = () => {
   return [
-    { title: "DataEngineX - AI Research Discovery Platform" },
-    { name: "description", content: "Discover, analyze, and connect research papers with AI-powered insights" },
+    { title: "DelphiX - AI-Powered Research Discovery Platform" },
+    {
+      name: "description",
+      content: "Discover, analyze, and connect research papers with AI-powered insights. Transform how you explore academic literature.",
+    },
   ];
 };
 
-export default function Index() {
+function FeatureCard({
+  icon: Icon,
+  title,
+  description,
+  delay = 0,
+}: {
+  icon: any;
+  title: string;
+  description: string;
+  delay?: number;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: 0.8 + delay, ease: [0.25, 0.4, 0.25, 1] }}
+      className="group relative"
+    >
+      <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-rose-500/10 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+      <div className="relative bg-white/[0.02] backdrop-blur-sm border border-white/[0.05] rounded-2xl p-8 hover:bg-white/[0.04] transition-all duration-300">
+        <div className="flex items-center gap-4 mb-4">
+          <div className="p-3 bg-gradient-to-br from-indigo-500/20 to-rose-500/20 rounded-lg">
+            <Icon className="h-6 w-6 text-white" />
+          </div>
+          <h3 className="text-xl font-semibold text-white">{title}</h3>
+        </div>
+        <p className="text-white/60 leading-relaxed">{description}</p>
+      </div>
+    </motion.div>
+  );
+}
+
+function SearchInterface() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
 
@@ -36,351 +70,316 @@ export default function Index() {
     }
   };
 
-  const trendingPapers = [
-    {
-      title: "Attention Is All You Need",
-      authors: "Vaswani et al.",
-      category: "Deep Learning",
-      citations: "50k+",
-      year: "2017"
-    },
-    {
-      title: "BERT: Pre-training of Deep Bidirectional Transformers",
-      authors: "Devlin et al.",
-      category: "NLP",
-      citations: "35k+",
-      year: "2018"
-    },
-    {
-      title: "GPT-3: Language Models are Few-Shot Learners",
-      authors: "Brown et al.",
-      category: "Language Models",
-      citations: "30k+",
-      year: "2020"
-    }
-  ];
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.8, delay: 0.4 }}
+      className="relative max-w-3xl mx-auto"
+    >
+      <div className="relative group">
+        <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/20 to-rose-500/20 rounded-2xl blur-xl opacity-50 group-hover:opacity-75 transition-opacity" />
+        <div className="relative flex items-center">
+          <Search className="absolute left-6 text-white/40 h-5 w-5" />
+          <input
+            type="text"
+            placeholder="Search papers, authors, or topics..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={handleKeyDown}
+            className={cn(
+              "w-full pl-14 pr-32 py-5 text-lg rounded-2xl",
+              "bg-white/[0.05] backdrop-blur-sm border border-white/[0.1]",
+              "text-white placeholder:text-white/40",
+              "focus:outline-none focus:bg-white/[0.08] focus:border-white/[0.2]",
+              "transition-all duration-300"
+            )}
+          />
+          <button
+            onClick={handleSearch}
+            disabled={isSearching}
+            className={cn(
+              "absolute right-3 px-6 py-3 rounded-xl",
+              "bg-gradient-to-r from-indigo-500 to-rose-500",
+              "text-white font-medium",
+              "hover:shadow-lg hover:shadow-indigo-500/25",
+              "disabled:opacity-50 disabled:cursor-not-allowed",
+              "transition-all duration-300"
+            )}
+          >
+            {isSearching ? (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <span>Searching...</span>
+              </div>
+            ) : (
+              "Search"
+            )}
+          </button>
+        </div>
+      </div>
+      
+      <div className="flex items-center justify-center gap-6 mt-6 text-sm">
+        <span className="text-white/40">Try:</span>
+        {["transformer architecture", "attention mechanism", "BERT"].map((term) => (
+          <button
+            key={term}
+            onClick={() => setSearchQuery(term)}
+            className="text-indigo-400 hover:text-indigo-300 transition-colors"
+          >
+            {term}
+          </button>
+        ))}
+      </div>
+    </motion.div>
+  );
+}
 
+export default function Index() {
   const features = [
     {
       icon: Search,
       title: "Smart Discovery",
-      description: "Search through millions of research papers with AI-powered semantic understanding"
+      description: "Search through millions of research papers with AI-powered semantic understanding.",
     },
     {
       icon: Network,
       title: "Knowledge Canvas",
-      description: "Visualize connections between papers and explore research landscapes interactively"
+      description: "Visualize connections between papers and explore research landscapes interactively with ReactFlow.",
     },
     {
       icon: MessageCircle,
       title: "Paper Agents",
-      description: "Chat with AI assistants that have deep understanding of specific research papers"
+      description: "Chat with AI assistants that have deep understanding of specific research papers.",
+    },
+    {
+      icon: Brain,
+      title: "AI Insights",
+      description: "Get automated summaries, key findings, and research implications instantly.",
+    },
+    {
+      icon: Users,
+      title: "Collaborative Research",
+      description: "Share insights and collaborate with researchers worldwide in real-time.",
     },
     {
       icon: Sparkles,
-      title: "AI Insights",
-      description: "Get automated summaries, key findings, and research implications instantly"
-    }
+      title: "Citation Networks",
+      description: "Explore citation relationships and discover influential papers in your field.",
+    },
   ];
 
   const stats = [
     { value: "2M+", label: "Research Papers" },
-    { value: "500K+", label: "Researchers" },
+    { value: "500K+", label: "Active Researchers" },
     { value: "50K+", label: "Institutions" },
-    { value: "99.9%", label: "Uptime" }
+    { value: "99.9%", label: "Uptime" },
   ];
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Navigation */}
-      <nav className="border-b border-gray-200 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <div className="flex-shrink-0 flex items-center space-x-3">
-                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                  <Sparkles className="w-5 h-5 text-white" />
-                </div>
-                <span className="text-xl font-semibold text-gray-900">DataEngineX</span>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Button variant="ghost" className="text-gray-600 hover:text-gray-900">
-                Features
-              </Button>
-              <Button variant="ghost" className="text-gray-600 hover:text-gray-900">
-                Pricing
-              </Button>
-              <Button variant="ghost" className="text-gray-600 hover:text-gray-900">
-                Docs
-              </Button>
-              <Button variant="outline">Sign In</Button>
-              <Button className="bg-blue-600 hover:bg-blue-700">Get Started</Button>
-            </div>
-          </div>
-        </div>
-      </nav>
+    <div className="min-h-screen bg-[#030303]">
+      <HeroGeometric
+        badge="AI Research Platform"
+        title1="Discover Research"
+        title2="Powered by AI"
+      />
 
-      {/* Hero Section */}
-      <div className="relative overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16">
-          <div className="text-center">
-            <h1 className="text-5xl font-bold text-gray-900 mb-6 leading-tight">
-              AI-Powered Research
-              <br />
-              <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                Discovery Platform
+      {/* Search Section */}
+      <section className="relative -mt-40 pb-20 px-4">
+        <div className="relative container mx-auto max-w-6xl">
+          <div className="text-center mb-12">
+            <motion.h2
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="text-3xl md:text-4xl font-bold mb-4"
+            >
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-white/80">
+                Start Your Research Journey
               </span>
-            </h1>
-            <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto leading-relaxed">
-              Discover, analyze, and connect research papers with advanced AI. 
-              Transform how you explore academic literature and accelerate your research.
-            </p>
-
-            {/* Search Interface */}
-            <div className="max-w-2xl mx-auto mb-12">
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <Input
-                  type="text"
-                  placeholder="Search papers, authors, or topics..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  className="pl-12 pr-32 py-4 text-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                />
-                <Button
-                  onClick={handleSearch}
-                  disabled={isSearching}
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-blue-600 hover:bg-blue-700 px-6"
-                >
-                  {isSearching ? (
-                    <div className="flex items-center space-x-2">
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      <span>Searching...</span>
-                    </div>
-                  ) : (
-                    <>Search</>
-                  )}
-                </Button>
-              </div>
-              
-              <div className="flex items-center justify-center space-x-6 mt-4 text-sm text-gray-500">
-                <span>Try:</span>
-                <button 
-                  onClick={() => setSearchQuery("attention mechanism")}
-                  className="text-blue-600 hover:text-blue-700 hover:underline"
-                >
-                  attention mechanism
-                </button>
-                <button 
-                  onClick={() => setSearchQuery("transformer architecture")}
-                  className="text-blue-600 hover:text-blue-700 hover:underline"
-                >
-                  transformer architecture
-                </button>
-                <button 
-                  onClick={() => setSearchQuery("BERT")}
-                  className="text-blue-600 hover:text-blue-700 hover:underline"
-                >
-                  BERT
-                </button>
-              </div>
-            </div>
-
-            {/* CTA Buttons */}
-            <div className="flex items-center justify-center space-x-4">
-              <Link to="/knowledge-canvas">
-                <Button size="lg" className="bg-blue-600 hover:bg-blue-700 px-8">
-                  Explore Knowledge Canvas
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Button>
-              </Link>
-              <Button size="lg" variant="outline" className="px-8">
-                Watch Demo
-              </Button>
-            </div>
+            </motion.h2>
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+              className="text-lg text-white/40 max-w-2xl mx-auto"
+            >
+              Search through millions of papers with AI-powered semantic understanding
+            </motion.p>
           </div>
+
+          <SearchInterface />
+
+          {/* Quick Access Buttons */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.6 }}
+            className="flex flex-col sm:flex-row gap-4 justify-center mt-12"
+          >
+            <Link to="/knowledge-canvas">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className={cn(
+                  "group px-6 py-3 rounded-full font-medium",
+                  "bg-white/[0.03] backdrop-blur-sm",
+                  "border border-white/[0.08] text-white",
+                  "hover:bg-white/[0.05] hover:border-white/[0.15]",
+                  "transition-all duration-300",
+                  "flex items-center gap-2"
+                )}
+              >
+                <Network className="h-4 w-4" />
+                Explore Knowledge Canvas
+                <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+              </motion.button>
+            </Link>
+            
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className={cn(
+                "px-6 py-3 rounded-full font-medium",
+                "bg-white/[0.03] backdrop-blur-sm",
+                "border border-white/[0.08] text-white",
+                "hover:bg-white/[0.05] hover:border-white/[0.15]",
+                "transition-all duration-300",
+                "flex items-center gap-2"
+              )}
+            >
+              <FileText className="h-4 w-4" />
+              Browse Papers
+            </motion.button>
+          </motion.div>
         </div>
-      </div>
+      </section>
 
       {/* Stats Section */}
-      <div className="bg-gray-50 py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-4 gap-8 text-center">
+      <section className="relative py-20 px-4">
+        <div className="container mx-auto max-w-6xl">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {stats.map((stat, index) => (
-              <div key={index}>
-                <div className="text-3xl font-bold text-gray-900 mb-2">{stat.value}</div>
-                <div className="text-sm text-gray-600">{stat.label}</div>
-              </div>
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.5, delay: 0.8 + index * 0.1 }}
+                className="text-center"
+              >
+                <div className="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-rose-400 mb-2">
+                  {stat.value}
+                </div>
+                <div className="text-sm text-white/40">{stat.label}</div>
+              </motion.div>
             ))}
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Features Section */}
-      <div className="py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">
-              Powered by Advanced AI
+      <section className="relative py-24 px-4">
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-indigo-500/[0.02] to-transparent" />
+        
+        <div className="relative container mx-auto max-w-6xl">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.6 }}
+            className="text-center mb-16"
+          >
+            <h2 className="text-4xl md:text-5xl font-bold mb-6">
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-white/80">
+                Powered by Advanced AI
+              </span>
             </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            <p className="text-lg text-white/40 max-w-2xl mx-auto">
               Experience the future of research discovery with our cutting-edge AI capabilities
             </p>
-          </div>
+          </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {features.map((feature, index) => (
-              <Card key={index} className="border-gray-200 hover:shadow-lg transition-shadow">
-                <CardHeader className="text-center">
-                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-4">
-                    <feature.icon className="w-6 h-6 text-blue-600" />
-                  </div>
-                  <CardTitle className="text-lg font-semibold text-gray-900">
-                    {feature.title}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription className="text-center text-gray-600 leading-relaxed">
-                    {feature.description}
-                  </CardDescription>
-                </CardContent>
-              </Card>
+              <FeatureCard
+                key={index}
+                icon={feature.icon}
+                title={feature.title}
+                description={feature.description}
+                delay={index * 0.1}
+              />
             ))}
           </div>
         </div>
-      </div>
-
-      {/* Trending Papers Section */}
-      <div className="bg-gray-50 py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between mb-12">
-            <div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-2">Trending Research</h2>
-              <p className="text-lg text-gray-600">Discover the most impactful papers in your field</p>
-            </div>
-            <Button variant="outline" className="flex items-center">
-              View All
-              <ChevronRight className="w-4 h-4 ml-2" />
-            </Button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {trendingPapers.map((paper, index) => (
-              <Card key={index} className="border-gray-200 hover:shadow-lg transition-all cursor-pointer group">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <Badge variant="secondary" className="text-xs">
-                      {paper.category}
-                    </Badge>
-                    <div className="flex items-center space-x-1 text-xs text-gray-500">
-                      <Star className="w-3 h-3" />
-                      <span>{paper.citations}</span>
-                    </div>
-                  </div>
-                  <CardTitle className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
-                    {paper.title}
-                  </CardTitle>
-                  <CardDescription className="text-sm text-gray-600">
-                    {paper.authors} • {paper.year}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-500">Citations: {paper.citations}</span>
-                    <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity">
-                      <MessageCircle className="w-4 h-4 mr-2" />
-                      Chat
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </div>
+      </section>
 
       {/* CTA Section */}
-      <div className="py-20">
-        <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">
-            Ready to accelerate your research?
-          </h2>
-          <p className="text-lg text-gray-600 mb-8">
-            Join thousands of researchers already using DataEngineX to discover breakthrough insights
-          </p>
-          <div className="flex items-center justify-center space-x-4">
-            <Button size="lg" className="bg-blue-600 hover:bg-blue-700 px-8">
-              Start Free Trial
-            </Button>
-            <Button size="lg" variant="outline" className="px-8">
-              Schedule Demo
-            </Button>
-          </div>
+      <section className="relative py-24 px-4">
+        <div className="container mx-auto max-w-4xl text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 1.2 }}
+          >
+            <h2 className="text-3xl md:text-4xl font-bold mb-6">
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-300 to-rose-300">
+                Ready to Accelerate Your Research?
+              </span>
+            </h2>
+            <p className="text-lg text-white/40 mb-8 max-w-2xl mx-auto">
+              Join thousands of researchers already using DelphiX to discover breakthrough insights
+            </p>
+            
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className={cn(
+                  "group px-8 py-4 rounded-full font-medium",
+                  "bg-gradient-to-r from-indigo-500 to-rose-500",
+                  "text-white shadow-lg shadow-indigo-500/25",
+                  "hover:shadow-xl hover:shadow-indigo-500/30",
+                  "transition-all duration-300",
+                  "flex items-center gap-2 justify-center"
+                )}
+              >
+                Start Free Trial
+                <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+              </motion.button>
+              
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className={cn(
+                  "px-8 py-4 rounded-full font-medium",
+                  "bg-white/[0.03] backdrop-blur-sm",
+                  "border border-white/[0.08] text-white",
+                  "hover:bg-white/[0.05] hover:border-white/[0.15]",
+                  "transition-all duration-300"
+                )}
+              >
+                Schedule Demo
+              </motion.button>
+            </div>
+          </motion.div>
         </div>
-      </div>
+      </section>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-white py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div>
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                  <Sparkles className="w-5 h-5 text-white" />
-                </div>
-                <span className="text-xl font-semibold">DataEngineX</span>
-              </div>
-              <p className="text-gray-400 leading-relaxed">
-                AI-powered research discovery platform for the modern researcher.
-              </p>
+      <footer className="relative py-12 px-4 border-t border-white/[0.05]">
+        <div className="container mx-auto max-w-6xl">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            <div className="text-white/40 text-sm">
+              © 2024 DelphiX. AI-powered research discovery platform.
             </div>
-            
-            <div>
-              <h3 className="font-semibold mb-4">Product</h3>
-              <ul className="space-y-2 text-gray-400">
-                <li><a href="#" className="hover:text-white transition-colors">Features</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Pricing</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">API</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Enterprise</a></li>
-              </ul>
-            </div>
-            
-            <div>
-              <h3 className="font-semibold mb-4">Resources</h3>
-              <ul className="space-y-2 text-gray-400">
-                <li><a href="#" className="hover:text-white transition-colors">Documentation</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Tutorials</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Blog</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Support</a></li>
-              </ul>
-            </div>
-            
-            <div>
-              <h3 className="font-semibold mb-4">Company</h3>
-              <ul className="space-y-2 text-gray-400">
-                <li><a href="#" className="hover:text-white transition-colors">About</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Careers</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Contact</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Privacy</a></li>
-              </ul>
-            </div>
-          </div>
-          
-          <div className="border-t border-gray-800 mt-8 pt-8 flex items-center justify-between">
-            <p className="text-gray-400 text-sm">
-              © 2024 DataEngineX. All rights reserved.
-            </p>
-            <div className="flex items-center space-x-6">
-              <a href="#" className="text-gray-400 hover:text-white transition-colors">
-                <Users className="w-5 h-5" />
+            <div className="flex gap-6">
+              <a href="#" className="text-white/40 hover:text-white/60 transition-colors text-sm">
+                Documentation
               </a>
-              <a href="#" className="text-gray-400 hover:text-white transition-colors">
-                <BookOpen className="w-5 h-5" />
+              <a href="#" className="text-white/40 hover:text-white/60 transition-colors text-sm">
+                API
               </a>
-              <a href="#" className="text-gray-400 hover:text-white transition-colors">
-                <Zap className="w-5 h-5" />
+              <a href="#" className="text-white/40 hover:text-white/60 transition-colors text-sm">
+                Research Blog
               </a>
             </div>
           </div>
