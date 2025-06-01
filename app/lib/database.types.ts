@@ -546,6 +546,12 @@ export interface Database {
         }
         Returns: Json
       }
+      get_enhanced_user_stats: {
+        Args: {
+          p_user_id: string
+        }
+        Returns: Json
+      }
       search_user_content: {
         Args: {
           p_user_id: string

@@ -61,6 +61,7 @@ export async function action({ request }: ActionFunctionArgs) {
   if (abstract) backendFormData.append("abstract", abstract.toString());
   if (year) backendFormData.append("year", year.toString());
   if (topics) backendFormData.append("topics", topics.toString());
+  backendFormData.append("source", "upload");
 
   // ------------- Make request to FastAPI backend -------------
   try {

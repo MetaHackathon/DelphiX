@@ -59,30 +59,23 @@ export async function loader({ params }: LoaderFunctionArgs) {
   try {
     // Get document data from API
     const document = await apiClient.getDocument(documentId!) as any;
-    const annotations = await apiClient.getDocumentAnnotations(documentId!) as any[];
+    const annotationsResponse = await apiClient.getDocumentAnnotations(documentId!) as any;
     
     return json({ 
       document: {
         ...(document || {}),
         id: documentId,
-        title: document?.title || "Attention Is All You Need",
-        authors: document?.authors || ["Ashish Vaswani", "Noam Shazeer", "Niki Parmar"],
-        pdfUrl: document?.pdfUrl || `/pdfs/sample.pdf`
+        title: document?.title || "Untitled Document",
+        authors: document?.authors || [],
+        // Use the mounted /files endpoint from the FastAPI server
+        pdfUrl: `http://localhost:8000/files/${documentId}.pdf`
       }, 
-      annotations: annotations || []
+      annotations: annotationsResponse?.annotations || [],
+      highlights: annotationsResponse?.highlights || []
     });
   } catch (error) {
-    // Fallback to mock data for development
-    const document = {
-      id: documentId,
-      title: "Attention Is All You Need",
-      authors: ["Ashish Vaswani", "Noam Shazeer", "Niki Parmar"],
-      pdfUrl: `/pdfs/sample.pdf`, // Sample PDF for testing
-      highlights: [],
-      annotations: []
-    };
-    
-    return json({ document, annotations: [] });
+    console.error('Error loading document:', error);
+    throw new Response("Document not found", { status: 404 });
   }
 }
 
@@ -113,7 +106,7 @@ const EXAMPLE_PROMPTS = [
 ];
 
 export default function DocumentViewer() {
-  const { document, annotations: initialAnnotations } = useLoaderData<typeof loader>();
+  const { document, annotations: initialAnnotations, highlights: initialHighlights } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
   
   // Configure PDF.js worker on client side only
@@ -134,7 +127,7 @@ export default function DocumentViewer() {
   }, []);
   
   // PDF Viewer State
-  const [highlights, setHighlights] = useState<ExtendedHighlight[]>([]);
+  const [highlights, setHighlights] = useState<ExtendedHighlight[]>(initialHighlights || []);
   const [zoom, setZoom] = useState<number>(1.0);
   const [tool, setTool] = useState<'select' | 'text' | 'area'>('select');
   const [currentPage, setCurrentPage] = useState(1);
@@ -297,6 +290,9 @@ export default function DocumentViewer() {
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
 
+    // Append markdown instruction to the prompt
+    const messageWithFormat = `${inputValue}\n\nPlease format your response in markdown.`;
+
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       type: 'user',
@@ -307,20 +303,19 @@ export default function DocumentViewer() {
     };
 
     setMessages(prev => [...prev, userMessage]);
-    const messageContent = inputValue;
     setInputValue("");
     setIsLoading(true);
     setShowPrompts(false);
 
     try {
-      const response = await apiClient.sendDocumentChatMessage(document.id, messageContent, {
+      const response = await apiClient.sendDocumentChatMessage(document.id, messageWithFormat, {
         highlights: contextHighlights
       }) as { message?: string };
 
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         type: 'assistant',
-        content: response.message || `I understand you're asking about "${messageContent}". Based on the document content${contextHighlights.length > 0 ? ' and your highlighted sections' : ''}, here's my analysis...`,
+        content: response.message || `I understand you're asking about "${inputValue}". Based on the document content${contextHighlights.length > 0 ? ' and your highlighted sections' : ''}, here's my analysis:\n\n`,
         timestamp: new Date(),
       };
 
@@ -328,11 +323,11 @@ export default function DocumentViewer() {
     } catch (error) {
       console.error('Failed to send chat message:', error);
       
-      // Fallback response
+      // Fallback response in markdown format
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         type: 'assistant',
-        content: `I understand you're asking about "${messageContent}". Based on the document content${contextHighlights.length > 0 ? ' and your highlighted sections' : ''}, here's my analysis...`,
+        content: `I understand you're asking about "${inputValue}". Based on the document content${contextHighlights.length > 0 ? ' and your highlighted sections' : ''}, here's my analysis:\n\n- Point 1\n- Point 2\n- Point 3`,
         timestamp: new Date(),
       };
 
@@ -541,10 +536,10 @@ export default function DocumentViewer() {
 
         {/* Sidebar */}
         {sidebarOpen && (
-          <div className="w-80 bg-[#121212]/95 backdrop-blur-md flex flex-col border-l border-[#1a1f2e]/50">
+          <div className="w-80 bg-[#121212]/95 backdrop-blur-md flex flex-col border-l border-[#1a1f2e]/50 h-[calc(100vh-128px)]">
             <ClientOnly fallback={<div className="p-4 text-center text-gray-400">Loading sidebar...</div>}>
               {/* Sidebar Header */}
-              <div className="flex items-center justify-between px-3 py-2 border-b border-[#1a1f2e]/50">
+              <div className="flex-none flex items-center justify-between px-3 py-2 border-b border-[#1a1f2e]/50">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-medium text-white/90">Research Assistant</span>
                 </div>
@@ -559,7 +554,7 @@ export default function DocumentViewer() {
               </div>
 
               {/* Tabs */}
-              <div className="flex h-8 items-center px-3 py-1 bg-transparent border-b border-[#1a1f2e]/50">
+              <div className="flex-none h-8 flex items-center px-3 py-1 bg-transparent border-b border-[#1a1f2e]/50">
                 <button
                   onClick={() => setSidebarTab('annotations')}
                   className={`flex-1 h-6 text-xs font-medium rounded-sm transition-all ${
@@ -583,11 +578,11 @@ export default function DocumentViewer() {
               </div>
 
               {/* Content */}
-              <div className="flex-1 flex flex-col min-h-0">
+              <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
                 {sidebarTab === 'annotations' ? (
-                  <div className="flex-1 flex flex-col">
+                  <div className="flex-1 flex flex-col overflow-hidden">
                     {/* Annotations List */}
-                    <div className="flex-1 overflow-y-auto">
+                    <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-[#1a1f2e] scrollbar-track-transparent">
                       <div className="p-3 space-y-2">
                         {annotations.map((annotation) => (
                           <div 
@@ -599,7 +594,7 @@ export default function DocumentViewer() {
                                 <p className="text-xs text-white/70 leading-relaxed">{annotation.highlight_text}</p>
                               </div>
                             )}
-                            <p className="text-xs text-white/90 leading-relaxed">{annotation.content}</p>
+                            <p className="text-xs text-white/90 leading-relaxed whitespace-pre-wrap">{annotation.content}</p>
                             <div className="flex items-center justify-between mt-2">
                               <p className="text-[10px] text-white/50">
                                 {new Date(annotation.timestamp).toLocaleString()}
@@ -624,7 +619,7 @@ export default function DocumentViewer() {
                     </div>
 
                     {/* Add Annotation */}
-                    <div className="p-3 border-t border-[#1a1f2e]/50 bg-[#121212]/95">
+                    <div className="flex-none p-3 border-t border-[#1a1f2e]/50 bg-[#121212]/95">
                       {selectedHighlight && (
                         <div className="mb-2 p-2 bg-[#1a1f2e]/20 border-l-2 border-[#43c2ff]/30 rounded-sm relative group">
                           <p className="text-xs text-white/70 leading-relaxed pr-6">
@@ -665,7 +660,7 @@ export default function DocumentViewer() {
                   </div>
                 ) : (
                   // Chat Interface
-                  <div className="flex-1 flex flex-col">
+                  <div className="flex-1 flex flex-col overflow-hidden">
                     {/* Messages */}
                     <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-[#1a1f2e] scrollbar-track-transparent">
                       <div className="p-3 space-y-3">
@@ -735,9 +730,9 @@ export default function DocumentViewer() {
                                   ? 'bg-blue-600 text-white' 
                                   : 'bg-[#1a1f2e]/30 text-white/90'
                               }`}>
-                                <p className="text-xs leading-relaxed whitespace-pre-wrap">
+                                <div className="text-xs leading-relaxed whitespace-pre-wrap prose prose-invert prose-sm max-w-none">
                                   {message.content}
-                                </p>
+                                </div>
                                 
                                 {message.context && (
                                   <div className="mt-2 pt-2 border-t border-white/10">
@@ -775,7 +770,7 @@ export default function DocumentViewer() {
                     </div>
 
                     {/* Chat Input */}
-                    <div className="p-3 border-t border-[#1a1f2e]/50 bg-[#121212]/95">
+                    <div className="flex-none p-3 border-t border-[#1a1f2e]/50 bg-[#121212]/95">
                       <div className="relative bg-[#1a1f2e]/20 rounded-md border border-[#1a1f2e]/30 focus-within:border-[#43c2ff]/30 focus-within:bg-[#1a1f2e]/40 transition-all">
                         <Textarea
                           ref={inputRef}

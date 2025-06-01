@@ -252,7 +252,50 @@ class ApiClient {
     return this.request(`/api/knowledgebases/${id}/papers`);
   }
 
-  // Generate insights for a knowledgebase
+  // Get connections data for a knowledgebase
+  async getKnowledgebaseConnections(id: string) {
+    return this.request(`/api/knowledgebases/${id}/connections`);
+  }
+
+  // Get insights data for a knowledgebase
+  async getKnowledgebaseInsights(id: string) {
+    return this.request(`/api/knowledgebases/${id}/insights`);
+  }
+
+  // Get analytics data for a knowledgebase
+  async getKnowledgebaseAnalytics(id: string) {
+    return this.request(`/api/knowledgebases/${id}/analytics`);
+  }
+
+  // Generate comprehensive analysis for a knowledgebase
+  async generateKnowledgebaseAnalysis(id: string) {
+    return this.request(`/api/knowledgebases/${id}/generate-analysis`, {
+      method: 'POST',
+    });
+  }
+
+  // Generate only connections analysis
+  async generateKnowledgebaseConnections(id: string) {
+    return this.request(`/api/knowledgebases/${id}/generate-connections`, {
+      method: 'POST',
+    });
+  }
+
+  // Generate only insights analysis
+  async generateKnowledgebaseInsightsOnly(id: string) {
+    return this.request(`/api/knowledgebases/${id}/generate-insights`, {
+      method: 'POST',
+    });
+  }
+
+  // Generate only analytics analysis
+  async generateKnowledgebaseAnalyticsOnly(id: string) {
+    return this.request(`/api/knowledgebases/${id}/generate-analytics`, {
+      method: 'POST',
+    });
+  }
+
+  // Generate insights for a knowledgebase (deprecated, use generateKnowledgebaseAnalysis)
   async generateKnowledgebaseInsights(id: string) {
     return this.request(`/api/knowledgebases/${id}/insights`, {
       method: 'POST',
@@ -353,6 +396,14 @@ class ApiClient {
   // Get document chat history
   async getDocumentChatHistory(documentId: string) {
     return this.request(`/api/documents/${documentId}/chat`);
+  }
+
+  // Schedule background PDF download for a paper
+  async schedulePaperDownload(paperId: string, url: string) {
+    return this.request(`/api/papers/${paperId}/schedule-download`, {
+      method: 'POST',
+      body: JSON.stringify({ url })
+    });
   }
 }
 

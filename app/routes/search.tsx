@@ -45,6 +45,9 @@ import { Badge } from "~/components/ui/badge";
 import { Input } from "~/components/ui/input";
 import { cn } from "~/lib/utils";
 import { apiClient } from "~/lib/api";
+import { useNavigate } from "react-router-dom";
+import React from "react";
+
 export const meta: MetaFunction = () => {
   return [
     { title: "Knowledgebase Builder - DelphiX" },
@@ -138,6 +141,7 @@ function SearchPageContent() {
     processingTime?: string;
     totalCandidates?: number;
   } | null>(null);
+  const navigate = useNavigate();
 
   // Auto-search if there's a query parameter
   useEffect(() => {
@@ -376,6 +380,28 @@ function SearchPageContent() {
   const suggestions = ["transformer architecture", "attention mechanism", "BERT", "neural networks", "computer vision"];
   const { avgQuality, topTopics, yearRange } = getKnowledgebaseComposition();
 
+  const handlePaperClick = (paper: Paper) => {
+    togglePaperSelection(paper.id);
+  };
+
+  const filteredResults = showOnlyHighQuality
+    ? results.filter((p) => (p.qualityScore || 0) >= 90)
+    : results;
+
+  const allVisibleSelected = filteredResults.length > 0 && filteredResults.every(p => selectedPapers.has(p.id));
+  const handleToggleSelectAllVisible = () => {
+    if (allVisibleSelected) {
+      // Deselect all visible
+      const newSelected = new Set(selectedPapers);
+      filteredResults.forEach(p => newSelected.delete(p.id));
+      setSelectedPapers(newSelected);
+    } else {
+      // Select all visible
+      const allIds = new Set([...selectedPapers, ...filteredResults.map(p => p.id)]);
+      setSelectedPapers(allIds);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#030303] pt-16">
       <div className="container mx-auto px-4 py-6 max-w-7xl">
@@ -432,7 +458,7 @@ function SearchPageContent() {
           transition={{ duration: 0.8, delay: 0.2 }}
           className="mb-6"
         >
-          <Card className="bg-white/[0.02] border-white/[0.08]">
+          <Card className="bg-white/[0.02] border-white/[0.08] shadow-lg">
             <CardContent className="p-4">
               <div className="flex items-center gap-3 mb-3">
                 <div className="flex-1 relative">
@@ -443,13 +469,13 @@ function SearchPageContent() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    className="w-full h-10 pl-10 pr-4 bg-white/[0.05] border border-white/[0.1] rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:border-indigo-500/50 transition-all"
+                    className="w-full h-10 pl-10 pr-4 bg-white/[0.07] border border-white/[0.12] rounded-xl text-white text-sm placeholder:text-white/40 focus:outline-none focus:border-indigo-500/70 focus:bg-white/[0.10] transition-all shadow-sm"
                   />
                 </div>
                 <Button
                   onClick={() => handleSearch()}
                   disabled={isLoading || !searchQuery.trim()}
-                  className="h-10 px-6 bg-gradient-to-r from-indigo-500 to-rose-500 hover:from-indigo-600 hover:to-rose-600"
+                  className="h-10 px-5 rounded-lg bg-slate-700 hover:bg-slate-800 text-white font-medium shadow-sm transition-all text-sm focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 focus:ring-offset-[#030303]"
                 >
                   {isLoading ? (
                     <div className="flex items-center gap-2">
@@ -464,8 +490,7 @@ function SearchPageContent() {
                   )}
                 </Button>
               </div>
-              
-              <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center justify-between text-sm mt-2">
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2">
                     <input
@@ -473,24 +498,29 @@ function SearchPageContent() {
                       id="highQuality"
                       checked={showOnlyHighQuality}
                       onChange={(e) => setShowOnlyHighQuality(e.target.checked)}
-                      className="rounded border-white/20 bg-white/5"
+                      className="rounded border-white/20 bg-white/5 focus:ring-2 focus:ring-indigo-400"
                     />
-                    <label htmlFor="highQuality" className="text-white/60">High Quality Only (90+)</label>
+                    <label htmlFor="highQuality" className="text-white/70 cursor-pointer select-none">High Quality Only (90+)</label>
                   </div>
-                  
-                  {results.length > 0 && (
-                    <Button
-                      onClick={selectAllPapers}
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-2 text-indigo-400 hover:text-indigo-300"
-                    >
-                      <CheckSquare className="h-3 w-3 mr-1" />
-                      Select All ({results.length})
-                    </Button>
-                  )}
+                  <Button
+                    onClick={handleToggleSelectAllVisible}
+                    variant="outline"
+                    size="sm"
+                    className={`h-7 px-3 border-slate-500/40 hover:bg-slate-700/10 hover:text-slate-800 rounded-md font-medium transition-all ${allVisibleSelected ? 'text-slate-800 border-slate-400 bg-slate-200' : 'text-slate-400'}`}
+                  >
+                    {allVisibleSelected ? (
+                      <>
+                        <Square className="h-4 w-4 mr-1" />
+                        Deselect All ({filteredResults.length})
+                      </>
+                    ) : (
+                      <>
+                        <CheckSquare className="h-4 w-4 mr-1" />
+                        Select All ({filteredResults.length})
+                      </>
+                    )}
+                  </Button>
                 </div>
-                
                 {!hasSearched && (
                   <div className="flex items-center gap-2">
                     <span className="text-white/40">Try:</span>
@@ -498,7 +528,7 @@ function SearchPageContent() {
                       <button
                         key={term}
                         onClick={() => setSearchQuery(term)}
-                        className="px-2 py-1 bg-white/[0.05] text-white/60 rounded text-xs hover:bg-white/[0.08] transition-colors"
+                        className="px-2 py-1 bg-white/[0.07] text-white/70 rounded hover:bg-white/[0.12] transition-colors text-xs font-medium"
                       >
                         {term}
                       </button>
@@ -506,10 +536,9 @@ function SearchPageContent() {
                   </div>
                 )}
               </div>
-              
               {/* Search Strategy Information */}
               {lastSearchInfo && (
-                <div className="mt-3 pt-3 border-t border-white/[0.05]">
+                <div className="mt-3 pt-3 border-t border-white/[0.07]">
                   <div className="flex items-center gap-4 text-xs text-white/60">
                     <div className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
@@ -676,7 +705,7 @@ function SearchPageContent() {
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <h2 className="text-lg font-semibold text-white">
-                      {isLoading ? "Analyzing Papers..." : `${results.length} candidates found`}
+                      {isLoading ? "Analyzing Papers..." : `${filteredResults.length} candidates found`}
                     </h2>
                     {selectedPapers.size > 0 && (
                       <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">
@@ -709,32 +738,23 @@ function SearchPageContent() {
                         <p className="text-white/80 text-sm">Analyzing paper quality and relevance...</p>
                       </div>
                     </div>
-                  ) : results.length > 0 ? (
-                    results.map((paper, index) => {
-                      const qualityBadge = getQualityBadge(paper.qualityScore || 0);
-                      const isSelected = selectedPapers.has(paper.id);
-                      
-                      return (
-                        <motion.div
-                          key={paper.id}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.3, delay: index * 0.03 }}
-                        >
-                          <Card 
+                  ) : filteredResults.length > 0 ? (
+                    viewMode === 'list' ? (
+                      <div className="space-y-4">
+                        {filteredResults.map((paper) => (
+                          <Card
+                            key={paper.id}
                             className={cn(
-                              "group cursor-pointer transition-all duration-300 relative border-l-4",
-                              isSelected 
-                                ? "bg-green-500/5 border-white/[0.15] border-l-green-500 shadow-lg shadow-green-500/10"
-                                : "bg-white/[0.02] border-white/[0.05] border-l-white/10 hover:border-white/[0.15] hover:border-l-indigo-500"
+                              "bg-white/[0.02] border-white/[0.08] hover:bg-white/[0.04] transition-all duration-300 cursor-pointer",
+                              selectedPapers.has(paper.id) && "ring-2 ring-indigo-500 bg-indigo-500/5"
                             )}
-                            onClick={() => togglePaperSelection(paper.id)}
+                            onClick={() => handlePaperClick(paper)}
                           >
                             <CardContent className="p-4">
                               <div className="flex gap-3">
                                 {/* Selection Checkbox */}
                                 <div className="flex-shrink-0 pt-1">
-                                  {isSelected ? (
+                                  {selectedPapers.has(paper.id) ? (
                                     <CheckSquare className="h-4 w-4 text-green-400" />
                                   ) : (
                                     <Square className="h-4 w-4 text-white/30 group-hover:text-white/50 transition-colors" />
@@ -750,8 +770,8 @@ function SearchPageContent() {
                                     
                                     {/* Quality Indicators */}
                                     <div className="flex items-center gap-1 flex-shrink-0">
-                                      <Badge className={cn(qualityBadge.color, "text-xs")}>
-                                        <qualityBadge.icon className="h-2 w-2 mr-1" />
+                                      <Badge className={cn(getQualityBadge(paper.qualityScore || 0).color, "text-xs")}>
+                                        {React.createElement(getQualityBadge(paper.qualityScore || 0).icon, { className: "h-2 w-2 mr-1" })}
                                         {paper.qualityScore}
                                       </Badge>
                                       <Badge variant="secondary" className="bg-purple-500/20 text-purple-300 text-xs">
@@ -797,7 +817,7 @@ function SearchPageContent() {
                                         size="sm"
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          window.open(paper.url, '_blank');
+                                          // No-op or show a tooltip/modal in the future
                                         }}
                                         className="text-indigo-400 hover:text-indigo-300 h-6 w-6 p-0"
                                       >
@@ -809,9 +829,101 @@ function SearchPageContent() {
                               </div>
                             </CardContent>
                           </Card>
-                        </motion.div>
-                      );
-                    })
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {filteredResults.map((paper) => (
+                          <Card
+                            key={paper.id}
+                            className={cn(
+                              "bg-white/[0.02] border-white/[0.08] hover:bg-white/[0.04] transition-all duration-300 cursor-pointer",
+                              selectedPapers.has(paper.id) && "ring-2 ring-indigo-500 bg-indigo-500/5"
+                            )}
+                            onClick={() => handlePaperClick(paper)}
+                          >
+                            <CardContent className="p-4">
+                              <div className="flex gap-3">
+                                {/* Selection Checkbox */}
+                                <div className="flex-shrink-0 pt-1">
+                                  {selectedPapers.has(paper.id) ? (
+                                    <CheckSquare className="h-4 w-4 text-green-400" />
+                                  ) : (
+                                    <Square className="h-4 w-4 text-white/30 group-hover:text-white/50 transition-colors" />
+                                  )}
+                                </div>
+
+                                {/* Paper Content */}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-start justify-between mb-2">
+                                    <h3 className="text-base font-semibold text-white group-hover:text-indigo-300 transition-colors line-clamp-2 pr-3">
+                                      {paper.title}
+                                    </h3>
+                                    
+                                    {/* Quality Indicators */}
+                                    <div className="flex items-center gap-1 flex-shrink-0">
+                                      <Badge className={cn(getQualityBadge(paper.qualityScore || 0).color, "text-xs")}>
+                                        {React.createElement(getQualityBadge(paper.qualityScore || 0).icon, { className: "h-2 w-2 mr-1" })}
+                                        {paper.qualityScore}
+                                      </Badge>
+                                      <Badge variant="secondary" className="bg-purple-500/20 text-purple-300 text-xs">
+                                        <TrendingUp className="h-2 w-2 mr-1" />
+                                        {paper.relevanceScore}%
+                                      </Badge>
+                                    </div>
+                                  </div>
+                                  
+                                  <p className="text-white/70 mb-3 line-clamp-2 leading-relaxed text-sm">
+                                    {paper.abstract}
+                                  </p>
+                                  
+                                  {/* Metadata Row */}
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3 text-xs text-white/60">
+                                      <div className="flex items-center gap-1">
+                                        <Users className="h-3 w-3" />
+                                        <span>{paper.authors.slice(0, 2).join(", ")}{paper.authors.length > 2 ? ` +${paper.authors.length - 2}` : ""}</span>
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <Calendar className="h-3 w-3" />
+                                        <span>{paper.year}</span>
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <Star className="h-3 w-3" />
+                                        <span>{paper.citations.toLocaleString()}</span>
+                                      </div>
+                                    </div>
+                                    
+                                    <div className="flex items-center gap-2">
+                                      {/* Topics */}
+                                      <div className="flex gap-1">
+                                        {paper.topics.slice(0, 2).map((topic) => (
+                                          <Badge key={topic} variant="secondary" className="bg-indigo-500/10 text-indigo-300 text-xs py-0">
+                                            {topic}
+                                          </Badge>
+                                        ))}
+                                      </div>
+                                      
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          // No-op or show a tooltip/modal in the future
+                                        }}
+                                        className="text-indigo-400 hover:text-indigo-300 h-6 w-6 p-0"
+                                      >
+                                        <Eye className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    )
                   ) : (
                     <div className="flex items-center justify-center h-full">
                       <div className="text-center max-w-md">

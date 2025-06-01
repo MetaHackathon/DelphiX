@@ -1,7 +1,8 @@
 import type { MetaFunction, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, Link } from "@remix-run/react";
+import { useLoaderData, Link, useParams, useNavigate } from "@remix-run/react";
 import { useState, useEffect, useMemo, useCallback } from "react";
+import * as React from "react";
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactFlow, { 
   Node, 
@@ -19,16 +20,44 @@ import {
   ArrowLeft, Search, Eye, Download, Share, Grid3X3, List, Network,
   Star, Tag, BookOpen, TrendingUp, Calendar, GitBranch,
   Sparkles, Target, Clock, Award, BarChart3, Activity,
-  RefreshCw, Link2, Brain, MessageCircle, Zap
+  RefreshCw, Link2, Brain, MessageCircle, Zap, Loader2,
+  Lightbulb, Wand2, AlertCircle as AlertCircleIcon,
+  type LucideIcon
 } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Badge } from "~/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
+import { Alert, AlertTitle, AlertDescription } from "~/components/ui/alert";
 import { cn } from '~/lib/utils';
-import { AuthGuard } from "~/components/auth-guard";
+import { AuthGuard, useAuth } from "~/components/auth-guard";
+import { apiClient } from "~/lib/api";
+import { toast, useToast } from "../components/ui/use-toast";
 
+// Add icon mapping
+const iconMap: Record<string, LucideIcon> = {
+  star: Star,
+  tag: Tag,
+  book: BookOpen,
+  trending: TrendingUp,
+  calendar: Calendar,
+  branch: GitBranch,
+  sparkles: Sparkles,
+  target: Target,
+  clock: Clock,
+  award: Award,
+  chart: BarChart3,
+  activity: Activity,
+  refresh: RefreshCw,
+  link: Link2,
+  brain: Brain,
+  message: MessageCircle,
+  zap: Zap,
+  loader: Loader2,
+  lightbulb: Lightbulb,
+  wand: Wand2
+};
 
 export const meta: MetaFunction = () => {
   return [
@@ -37,91 +66,119 @@ export const meta: MetaFunction = () => {
   ];
 };
 
-export async function loader({ params }: LoaderFunctionArgs) {
-  const { id } = params;
-  
-  // Mock knowledge base data - replace with actual database calls
-  const mockKnowledgeBase = {
-    id: id,
-    name: "Transformer Architecture Research",
-    description: "Comprehensive study of transformer models and their applications across NLP, computer vision, and beyond",
-    paper_count: 24,
-    created_at: "2024-01-15T10:30:00Z",
-    updated_at: "2024-01-20T14:45:00Z",
-    tags: ["Transformers", "NLP", "Attention Mechanism", "BERT", "GPT"],
-    status: "active",
-    papers: [
-      {
-        id: "1",
-        title: "Attention Is All You Need",
-        authors: ["Ashish Vaswani", "Noam Shazeer", "Niki Parmar"],
-        year: 2017,
-        citations: 85420,
-        abstract: "The dominant sequence transduction models are based on complex recurrent or convolutional neural networks...",
-        venue: "NIPS",
-        topics: ["Attention", "Transformers", "Machine Translation"],
-        qualityScore: 9.8,
-        connections: ["2", "3", "5"],
-        keyInsights: ["Introduction of the Transformer architecture", "Self-attention mechanism", "Parallel processing"]
-      },
-      {
-        id: "2", 
-        title: "BERT: Pre-training of Deep Bidirectional Transformers",
-        authors: ["Jacob Devlin", "Ming-Wei Chang", "Kenton Lee"],
-        year: 2018,
-        citations: 67890,
-        abstract: "We introduce a new language representation model called BERT, which stands for Bidirectional Encoder Representations...",
-        venue: "NAACL",
-        topics: ["BERT", "Pre-training", "Bidirectional", "Language Model"],
-        qualityScore: 9.5,
-        connections: ["1", "4", "6"],
-        keyInsights: ["Bidirectional training", "Pre-training + fine-tuning", "Context understanding"]
-      },
-      {
-        id: "3",
-        title: "GPT-3: Language Models are Few-Shot Learners", 
-        authors: ["Tom B. Brown", "Benjamin Mann", "Nick Ryder"],
-        year: 2020,
-        citations: 45670,
-        abstract: "Recent work has demonstrated substantial gains on many NLP tasks and benchmarks by pre-training...",
-        venue: "NIPS",
-        topics: ["GPT", "Few-shot Learning", "Large Language Models"],
-        qualityScore: 9.7,
-        connections: ["1", "2", "7"],
-        keyInsights: ["In-context learning", "Scale effects", "Emergent abilities"]
-      },
-      {
-        id: "4",
-        title: "Vision Transformer (ViT): An Image is Worth 16x16 Words",
-        authors: ["Alexey Dosovitskiy", "Lucas Beyer", "Alexander Kolesnikov"],
-        year: 2020,
-        citations: 32450,
-        abstract: "While the Transformer architecture has become the de-facto standard for natural language processing...",
-        venue: "ICLR",
-        topics: ["Vision Transformer", "Computer Vision", "Image Classification"],
-        qualityScore: 9.2,
-        connections: ["1", "5"],
-        keyInsights: ["Transformers for vision", "Patch embeddings", "Transfer from NLP"]
-      },
-      {
-        id: "5",
-        title: "Scaling Laws for Neural Language Models",
-        authors: ["Jared Kaplan", "Sam McCandlish", "Tom Henighan"],
-        year: 2020,
-        citations: 18930,
-        abstract: "We study empirical scaling laws for language model performance on the cross-entropy loss...",
-        venue: "ArXiv",
-        topics: ["Scaling Laws", "Language Models", "Performance"],
-        qualityScore: 8.9,
-        connections: ["1", "3", "4"],
-        keyInsights: ["Performance scaling", "Compute requirements", "Model size effects"]
-      }
-    ]
-  };
-
-  return json({ knowledgeBase: mockKnowledgeBase });
+// Real data interfaces
+interface KnowledgeBaseData {
+  id: string;
+  name: string;
+  description: string;
+  paper_count: number;
+  created_at: string;
+  updated_at: string;
+  tags: string[];
+  status: string;
+  user_id: string;
+  is_public: boolean;
 }
 
+interface PaperData {
+  id: string;
+  title: string;
+  abstract: string;
+  authors: string[];
+  year: number;
+  citations: number;
+  pdf_url?: string;
+  url?: string;
+  topics: string[];
+  quality_score?: number;
+  relevance_score?: number;
+}
+
+interface ConnectionsData {
+  nodes: Array<{
+    id: string;
+    title: string;
+    authors: string[];
+    year: number;
+    citations: number;
+    qualityScore: number;
+    x: number;
+    y: number;
+    connections: number;
+  }>;
+  edges: Array<{
+    source: string;
+    target: string;
+    strength: number;
+  }>;
+  stats: {
+    totalNodes: number;
+    totalConnections: number;
+    avgDegree: number;
+  };
+}
+
+interface InsightsData {
+  researchTrends: Array<{
+    id: string;
+    type: string;
+    title: string;
+    description: string;
+    keyPapers: string[];
+    confidence: number;
+    citations: number;
+    icon: string;
+  }>;
+  researchGaps: Array<{
+    id: string;
+    type: string;
+    title: string;
+    description: string;
+    keyPapers: string[];
+    confidence: number;
+    citations: number;
+    icon: string;
+  }>;
+  keyConnections: Array<{
+    id: string;
+    type: string;
+    title: string;
+    description: string;
+    keyPapers: string[];
+    confidence: number;
+    citations: number;
+    icon: string;
+  }>;
+  emergingAreas: Array<{
+    id: string;
+    type: string;
+    title: string;
+    description: string;
+    keyPapers: string[];
+    confidence: number;
+    citations: number;
+    icon: string;
+  }>;
+  suggestedQuestions: string[];
+}
+
+interface AnalyticsData {
+  keyThemes: Array<{ theme: string; count: number }>;
+  topVenues: Array<{ venue: string; count: number }>;
+  qualityDistribution: Array<{ label: string; count: number }>;
+  citationTrends: {
+    totalCitations: number;
+    averageQuality: number;
+    topCitedPapers: Array<{ title: string; citations: number }>;
+  };
+  timeline: {
+    firstPaper: number;
+    latestPaper: number;
+    timeSpan: string;
+  };
+}
+
+// Keep the existing Paper and KnowledgeBase interfaces for the UI
 interface Paper {
   id: string;
   title: string;
@@ -134,6 +191,17 @@ interface Paper {
   qualityScore: number;
   connections: string[];
   keyInsights: string[];
+  _originalData?: {
+    arxiv_id: string;
+    title: string;
+    abstract: string;
+    authors: string[];
+    year: number;
+    citations: number;
+    pdf_url: string;
+    topics: string[];
+    institution: string;
+  };
 }
 
 interface KnowledgeBase {
@@ -148,357 +216,302 @@ interface KnowledgeBase {
   papers: Paper[];
 }
 
+// Move helpers to module scope so all components can use them
+const getQualityColor = (score: number) => {
+  if (score >= 9.5) return "bg-emerald-500/20 text-emerald-300 border-emerald-500/30";
+  if (score >= 9.0) return "bg-green-500/20 text-green-300 border-green-500/30";
+  if (score >= 8.5) return "bg-yellow-500/20 text-yellow-300 border-yellow-500/30";
+  return "bg-orange-500/20 text-orange-300 border-orange-500/30";
+};
+
+const getQualityColorHex = (score: number) => {
+  if (score >= 9.5) return "#10b981";
+  if (score >= 9.0) return "#84cc16";  
+  if (score >= 8.5) return "#eab308";
+  return "#f97316";
+};
+
 export default function KnowledgeBaseViewer() {
-  const { knowledgeBase } = useLoaderData<{ knowledgeBase: KnowledgeBase }>();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedPaper, setSelectedPaper] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'network'>('grid');
-  const [filterTopic, setFilterTopic] = useState<string | null>(null);
+  return <KnowledgeBaseViewerContent />;
+}
 
-  // Derived state
-  const filteredPapers = useMemo(() => {
-    return knowledgeBase.papers.filter(paper => {
-      const matchesSearch = paper.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                           paper.abstract.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                           paper.authors.some(author => author.toLowerCase().includes(searchQuery.toLowerCase()));
-      
-      const matchesTopic = !filterTopic || paper.topics.includes(filterTopic);
-      
-      return matchesSearch && matchesTopic;
-    });
-  }, [knowledgeBase.papers, searchQuery, filterTopic]);
-
-  const allTopics = useMemo(() => {
-    const topics = new Set<string>();
-    knowledgeBase.papers.forEach(paper => {
-      paper.topics.forEach(topic => topics.add(topic));
-    });
-    return Array.from(topics);
-  }, [knowledgeBase.papers]);
-
-  const insights = useMemo(() => {
-    const totalCitations = knowledgeBase.papers.reduce((sum, paper) => sum + paper.citations, 0);
-    const avgQuality = knowledgeBase.papers.reduce((sum, paper) => sum + paper.qualityScore, 0) / knowledgeBase.papers.length;
-    const yearRange = {
-      min: Math.min(...knowledgeBase.papers.map(p => p.year)),
-      max: Math.max(...knowledgeBase.papers.map(p => p.year))
-    };
-    const topVenues = knowledgeBase.papers.reduce((acc, paper) => {
-      acc[paper.venue] = (acc[paper.venue] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-
-    return {
-      totalCitations,
-      avgQuality: Math.round(avgQuality * 10) / 10,
-      yearRange,
-      topVenues: Object.entries(topVenues).sort(([,a], [,b]) => b - a).slice(0, 3)
-    };
-  }, [knowledgeBase.papers]);
-
-  const getQualityColor = (score: number) => {
-    if (score >= 9.5) return "bg-emerald-500/20 text-emerald-300 border-emerald-500/30";
-    if (score >= 9.0) return "bg-green-500/20 text-green-300 border-green-500/30";
-    if (score >= 8.5) return "bg-yellow-500/20 text-yellow-300 border-yellow-500/30";
-    return "bg-orange-500/20 text-orange-300 border-orange-500/30";
-  };
-
-  const getQualityColorHex = (score: number) => {
-    if (score >= 9.5) return "#10b981";
-    if (score >= 9.0) return "#84cc16";  
-    if (score >= 8.5) return "#eab308";
-    return "#f97316";
-  };
-
-// Research Explorer Component - Intelligent research insights
-function ResearchExplorer({ knowledgeBase }: { knowledgeBase: KnowledgeBase }) {
-  const [selectedInsight, setSelectedInsight] = useState<string | null>(null);
+// Move subcomponents OUTSIDE the main component
+function ResearchExplorer({ knowledgeBase, insightsData, activeTab }: { 
+  knowledgeBase: KnowledgeBase, 
+  insightsData: InsightsData,
+  activeTab: 'connections' | 'insights' | 'analytics'
+}) {
   const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
-  // Mock intelligent insights that would come from LLM analysis
-  const mockInsights = [
-    {
-      id: "1",
-      type: "trend",
-      title: "Evolution of Transformer Architecture",
-      description: "Papers show clear progression from basic attention mechanisms to advanced applications",
-      keyPapers: ["1", "2", "3"],
-      insight: "The research shows a clear evolution from Vaswani et al.'s foundational work to specialized applications in vision and language modeling. The progression suggests attention mechanisms are becoming the dominant paradigm.",
-      confidence: 0.92,
-      citations: 198930,
-      icon: TrendingUp,
-      color: "text-blue-400"
-    },
-    {
-      id: "2", 
-      type: "gap",
-      title: "Efficiency vs Performance Trade-off",
-      description: "Research gap identified in efficient transformer architectures for resource-constrained environments",
-      keyPapers: ["4", "5"],
-      insight: "While scaling laws show performance improvements with model size, there's limited research on maintaining efficiency for deployment. This represents a significant opportunity.",
-      confidence: 0.87,
-      citations: 51380,
-      icon: Zap,
-      color: "text-yellow-400"
-    },
-    {
-      id: "3",
-      type: "connection",
-      title: "Vision-Language Model Convergence", 
-      description: "Strong thematic connections between computer vision and NLP transformer applications",
-      keyPapers: ["1", "4"],
-      insight: "ViT's success in computer vision directly builds on transformer foundations, suggesting unified architectures for multimodal AI are emerging.",
-      confidence: 0.95,
-      citations: 117870,
-      icon: Link2,
-      color: "text-green-400"
-    },
-    {
-      id: "4",
-      type: "emerging",
-      title: "Scaling Laws and Emergence",
-      description: "Consistent patterns in how performance scales with model size across domains",
-      keyPapers: ["3", "5"],
-      insight: "Scaling laws appear universal across language and vision domains. Papers suggest emergent capabilities arise at predictable scale thresholds.",
-      confidence: 0.89,
-      citations: 64600,
-      icon: BarChart3,
-      color: "text-purple-400"
-    }
-  ];
-
-  const handleGenerateInsights = () => {
+  const generateAnalysis = async (type: 'connections' | 'insights' | 'analytics') => {
     setIsGenerating(true);
-    // Simulate AI analysis
-    setTimeout(() => setIsGenerating(false), 2000);
+    setError(null);
+    try {
+      const response = await fetch(`/api/knowledgebases/${knowledgeBase.id}/generate-${type}`, {
+        method: 'POST',
+      });
+      if (!response.ok) throw new Error(`Failed to generate ${type}`);
+      const data = await response.json();
+      toast({
+        title: 'Analysis Generated',
+        description: `Successfully generated ${type} analysis`,
+      });
+      // Trigger parent component to reload data
+      window.location.reload();
+    } catch (error: any) {
+      console.error(`Error generating ${type}:`, error);
+      setError(error.message);
+      toast({
+        variant: "destructive",
+        title: 'Error',
+        description: `Failed to generate ${type} analysis`,
+      });
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-between"
-      >
-        <div>
-          <h3 className="text-xl font-semibold text-white mb-2">Research Insights</h3>
-          <p className="text-white/60">
-            AI-powered analysis of {knowledgeBase.papers.length} papers revealing key patterns and opportunities
-          </p>
-        </div>
-        
-        <Button
-          onClick={handleGenerateInsights}
-          disabled={isGenerating}
-          className="bg-indigo-600 hover:bg-indigo-700"
+      {error && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircleIcon className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {activeTab === 'connections' && (
+        <ReactFlowMindMap knowledgeBase={knowledgeBase} />
+      )}
+
+      {activeTab === 'insights' && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-6"
         >
-          {isGenerating ? (
-            <>
-              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-              Analyzing...
-            </>
-          ) : (
-            <>
-              <Brain className="h-4 w-4 mr-2" />
-              Generate Insights
-            </>
-          )}
-        </Button>
-      </motion.div>
-
-      {/* Quick Stats */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="grid grid-cols-4 gap-4"
-      >
-        <div className="bg-white/[0.02] border border-white/[0.08] rounded-lg p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="h-4 w-4 text-blue-400" />
-            <span className="text-white/60 text-sm">Research Trends</span>
-          </div>
-          <p className="text-white text-2xl font-bold">4</p>
-          <p className="text-white/50 text-xs">patterns identified</p>
-        </div>
-        <div className="bg-white/[0.02] border border-white/[0.08] rounded-lg p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Target className="h-4 w-4 text-yellow-400" />
-            <span className="text-white/60 text-sm">Research Gaps</span>
-          </div>
-          <p className="text-white text-2xl font-bold">2</p>
-          <p className="text-white/50 text-xs">opportunities found</p>
-        </div>
-        <div className="bg-white/[0.02] border border-white/[0.08] rounded-lg p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Link2 className="h-4 w-4 text-green-400" />
-            <span className="text-white/60 text-sm">Key Connections</span>
-          </div>
-          <p className="text-white text-2xl font-bold">8</p>
-          <p className="text-white/50 text-xs">strong relationships</p>
-        </div>
-        <div className="bg-white/[0.02] border border-white/[0.08] rounded-lg p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Sparkles className="h-4 w-4 text-purple-400" />
-            <span className="text-white/60 text-sm">Emerging Areas</span>
-          </div>
-          <p className="text-white text-2xl font-bold">3</p>
-          <p className="text-white/50 text-xs">future directions</p>
-        </div>
-      </motion.div>
-
-      {/* Main Insights Grid */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="grid grid-cols-1 lg:grid-cols-2 gap-6"
-      >
-        {mockInsights.map((insight, index) => (
-          <Card 
-            key={insight.id}
-            className={cn(
-              "bg-white/[0.02] border-white/[0.08] hover:bg-white/[0.04] transition-all duration-300 cursor-pointer",
-              selectedInsight === insight.id && "ring-2 ring-indigo-500 bg-indigo-500/5"
-            )}
-            onClick={() => setSelectedInsight(selectedInsight === insight.id ? null : insight.id)}
-          >
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-2">
-                  <insight.icon className={cn("h-5 w-5", insight.color)} />
-                  <Badge variant="outline" className="text-xs border-white/[0.1] text-white/60 capitalize">
-                    {insight.type}
-                  </Badge>
-                </div>
-                <div className="text-right">
-                  <div className="text-xs text-white/60">Confidence</div>
-                  <div className="text-sm font-semibold text-white">
-                    {Math.round(insight.confidence * 100)}%
-                  </div>
-                </div>
-              </div>
-            </CardHeader>
-            
-            <CardContent>
-              <div className="space-y-3">
-                <div>
-                  <h4 className="text-white font-semibold mb-1">{insight.title}</h4>
-                  <p className="text-white/70 text-sm">{insight.description}</p>
-                </div>
-                
-                <div className="flex items-center justify-between text-xs text-white/60">
-                  <span>{insight.keyPapers.length} key papers</span>
-                  <div className="flex items-center gap-1">
-                    <Star className="h-3 w-3" />
-                    <span>{insight.citations.toLocaleString()} citations</span>
-                  </div>
-                </div>
-                
-                {selectedInsight === insight.id && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    className="pt-3 border-t border-white/[0.1]"
-                  >
-                    <p className="text-white/80 text-sm leading-relaxed mb-3">
-                      {insight.insight}
-                    </p>
-                    
-                    <div className="space-y-2">
-                      <div className="text-xs text-white/60 font-medium">Key Papers:</div>
-                      {insight.keyPapers.map(paperId => {
-                        const paper = knowledgeBase.papers.find(p => p.id === paperId);
-                        return paper ? (
-                          <div key={paperId} className="p-2 bg-white/[0.02] border border-white/[0.05] rounded text-sm">
-                            <p className="text-white/80 font-medium line-clamp-1">{paper.title}</p>
-                            <p className="text-white/60 text-xs">
-                              {paper.authors[0]} et al. ({paper.year}) • {paper.citations.toLocaleString()} citations
-                            </p>
-                          </div>
-                        ) : null;
-                      })}
-                    </div>
-                  </motion.div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </motion.div>
-
-      {/* Research Questions */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-      >
-        <Card className="bg-white/[0.02] border-white/[0.08]">
-          <CardHeader>
-            <CardTitle className="text-white flex items-center gap-2">
-              <MessageCircle className="h-5 w-5" />
-              Suggested Research Questions
-            </CardTitle>
-            <CardDescription className="text-white/60">
-              AI-generated questions based on gaps and patterns in your knowledge base
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {[
-                "How can transformer efficiency be improved for mobile deployment while maintaining performance?",
-                "What are the theoretical limits of scaling laws in transformer architectures?", 
-                "How do attention patterns differ between vision and language tasks?",
-                "What hybrid architectures could combine the benefits of transformers and CNNs?"
-              ].map((question, index) => (
-                <div 
-                  key={index}
-                  className="p-3 bg-white/[0.02] border border-white/[0.05] rounded-lg hover:bg-white/[0.04] transition-colors cursor-pointer"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="bg-indigo-500/20 text-indigo-400 rounded-full p-1 mt-0.5">
-                      <span className="text-xs font-bold">{index + 1}</span>
-                    </div>
-                    <p className="text-white/80 text-sm leading-relaxed">{question}</p>
-                  </div>
-                </div>
-              ))}
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-xl font-semibold text-white mb-2">Research Insights</h3>
+              <p className="text-white/60">
+                AI-powered analysis of key findings, trends, and opportunities
+              </p>
             </div>
-          </CardContent>
-        </Card>
-      </motion.div>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+              onClick={() => generateAnalysis('insights')}
+              disabled={isGenerating}
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Wand2 className="h-4 w-4 mr-2" />
+                  Generate Insights
+                </>
+              )}
+            </Button>
+          </div>
+
+          {/* Main Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Research Trends */}
+            <Card className="bg-white/[0.02] border-white/[0.08] lg:col-span-2">
+              <CardHeader>
+                <CardTitle className="text-white text-lg flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5" />
+                  Research Trends
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {insightsData?.researchTrends.map(trend => (
+                  <div key={trend.id} className="p-4 bg-white/[0.02] rounded-lg border border-white/[0.08]">
+                    <div className="flex items-start gap-3">
+                      <div className={cn("p-2 rounded-lg", getQualityColor(trend.confidence))}>
+                        {React.createElement(iconMap[trend.icon] || TrendingUp, { className: "h-5 w-5" })}
+                      </div>
+                      <div>
+                        <h4 className="text-white font-medium mb-1">{trend.title}</h4>
+                        <p className="text-white/70 text-sm">{trend.description}</p>
+                        <div className="flex items-center gap-3 mt-2 text-sm text-white/60">
+                          <span className="flex items-center gap-1">
+                            <Star className="h-4 w-4" />
+                            {trend.citations} citations
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <BarChart3 className="h-4 w-4" />
+                            {Math.round(trend.confidence * 100)}% confidence
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Research Gaps */}
+            <Card className="bg-white/[0.02] border-white/[0.08]">
+              <CardHeader>
+                <CardTitle className="text-white text-lg flex items-center gap-2">
+                  <Target className="h-5 w-5" />
+                  Research Gaps
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {insightsData?.researchGaps.map(gap => (
+                  <div key={gap.id} className="p-4 bg-white/[0.02] rounded-lg border border-white/[0.08]">
+                    <div className="flex items-start gap-3">
+                      <div className={cn("p-2 rounded-lg", getQualityColor(gap.confidence))}>
+                        {React.createElement(iconMap[gap.icon] || Target, { className: "h-5 w-5" })}
+                      </div>
+                      <div>
+                        <h4 className="text-white font-medium mb-1">{gap.title}</h4>
+                        <p className="text-white/70 text-sm">{gap.description}</p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <Badge variant="outline" className="text-xs">
+                            {Math.round(gap.confidence * 100)}% confidence
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Key Connections */}
+            <Card className="bg-white/[0.02] border-white/[0.08] lg:col-span-2">
+              <CardHeader>
+                <CardTitle className="text-white text-lg flex items-center gap-2">
+                  <Link2 className="h-5 w-5" />
+                  Key Connections
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {insightsData?.keyConnections.map(connection => (
+                  <div key={connection.id} className="p-4 bg-white/[0.02] rounded-lg border border-white/[0.08]">
+                    <div className="flex items-start gap-3">
+                      <div className={cn("p-2 rounded-lg", getQualityColor(connection.confidence))}>
+                        {React.createElement(iconMap[connection.icon] || Link2, { className: "h-5 w-5" })}
+                      </div>
+                      <div>
+                        <h4 className="text-white font-medium mb-1">{connection.title}</h4>
+                        <p className="text-white/70 text-sm">{connection.description}</p>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {connection.keyPapers.map(paperId => {
+                            const paper = knowledgeBase.papers.find(p => p.id === paperId);
+                            return paper ? (
+                              <Badge key={paperId} variant="outline" className="text-xs">
+                                {paper.authors[0]} et al. ({paper.year})
+                              </Badge>
+                            ) : null;
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Emerging Areas */}
+            <Card className="bg-white/[0.02] border-white/[0.08]">
+              <CardHeader>
+                <CardTitle className="text-white text-lg flex items-center gap-2">
+                  <Sparkles className="h-5 w-5" />
+                  Emerging Areas
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {insightsData?.emergingAreas.map(area => (
+                  <div key={area.id} className="p-4 bg-white/[0.02] rounded-lg border border-white/[0.08]">
+                    <div className="flex items-start gap-3">
+                      <div className={cn("p-2 rounded-lg", getQualityColor(area.confidence))}>
+                        {React.createElement(iconMap[area.icon] || Sparkles, { className: "h-5 w-5" })}
+                      </div>
+                      <div>
+                        <h4 className="text-white font-medium mb-1">{area.title}</h4>
+                        <p className="text-white/70 text-sm">{area.description}</p>
+                        <div className="flex items-center gap-3 mt-2 text-sm text-white/60">
+                          <span className="flex items-center gap-1">
+                            <Star className="h-4 w-4" />
+                            {area.citations} citations
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <TrendingUp className="h-4 w-4" />
+                            {Math.round(area.confidence * 100)}% confidence
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Suggested Questions */}
+            <Card className="bg-white/[0.02] border-white/[0.08] lg:col-span-3">
+              <CardHeader>
+                <CardTitle className="text-white text-lg flex items-center gap-2">
+                  <MessageCircle className="h-5 w-5" />
+                  Suggested Research Questions
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {insightsData?.suggestedQuestions.map((question, idx) => (
+                    <div 
+                      key={idx}
+                      className="p-4 bg-white/[0.02] rounded-lg border border-white/[0.08] hover:bg-white/[0.04] transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400">
+                          <Brain className="h-5 w-5" />
+                        </div>
+                        <p className="text-white/80 text-sm">{question}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </motion.div>
+      )}
     </div>
   );
 }
 
-// Custom Paper Node Component
 function PaperNode({ data, selected }: { data: any; selected?: boolean }) {
   const [isHovered, setIsHovered] = useState(false);
   
-  const getQualityColor = (score: number) => {
-    if (score >= 9.5) return "#10b981"; // emerald-500
-    if (score >= 9.0) return "#84cc16"; // lime-500  
-    if (score >= 8.5) return "#eab308"; // yellow-500
-    return "#f97316"; // orange-500
-  };
-
   const nodeWidth = isHovered ? 320 : Math.max(140, Math.min(200, Math.sqrt(data.citations / 50) + 120));
   const nodeHeight = isHovered ? 200 : Math.max(80, Math.min(120, Math.sqrt(data.citations / 100) + 60));
 
   return (
     <div 
       className={cn(
-        "paper-node relative bg-gray-900/95 backdrop-blur border-2 rounded-xl p-4 transition-all duration-500 cursor-pointer shadow-2xl",
+        "paper-node relative bg-gray-900/95 backdrop-blur border-2 rounded-xl p-2  transition-all duration-500 cursor-pointer shadow-2xl h-32 w-42",
         "hover:shadow-3xl hover:scale-105",
         selected && "ring-2 ring-blue-400 bg-blue-900/20",
         isHovered && "z-50 shadow-blue-500/20"
       )}
       style={{ 
-        borderColor: getQualityColor(data.qualityScore),
+        borderColor: getQualityColorHex(data.qualityScore),
         width: nodeWidth,
         height: nodeHeight,
-        boxShadow: isHovered ? `0 20px 40px ${getQualityColor(data.qualityScore)}20` : undefined
+        boxShadow: isHovered ? `0 20px 40px ${getQualityColorHex(data.qualityScore)}20` : undefined
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -526,7 +539,7 @@ function PaperNode({ data, selected }: { data: any; selected?: boolean }) {
           
           <div 
             className="w-6 h-6 rounded-full text-xs flex items-center justify-center font-bold text-white ml-2 flex-shrink-0"
-            style={{ backgroundColor: getQualityColor(data.qualityScore) }}
+            style={{ backgroundColor: getQualityColorHex(data.qualityScore) }}
           >
             {data.qualityScore}
           </div>
@@ -559,15 +572,16 @@ function PaperNode({ data, selected }: { data: any; selected?: boolean }) {
                 ))}
               </div>
               
-              {/* Venue */}
-              <div className="text-xs text-gray-400">
-                Published in {data.venue}
+              {/* Details */}
+              <div className="space-y-2 text-xs">
+                <p className="text-gray-300 line-clamp-3">{data.abstract}</p>
+                <div className="text-gray-400">Published in {data.venue}</div>
               </div>
             </motion.div>
           )}
           
           {/* Footer */}
-          <div className="flex items-center justify-between mt-auto pt-2">
+          <div className="flex items-center justify-between mt-auto pt-2 ">
             <div className="flex items-center gap-3 text-xs text-gray-300">
               <div className="flex items-center gap-1">
                 <Star className="h-3 w-3" />
@@ -601,7 +615,6 @@ function PaperNode({ data, selected }: { data: any; selected?: boolean }) {
   );
 }
 
-// React Flow Mind Map Component
 function ReactFlowMindMap({ knowledgeBase }: { knowledgeBase: KnowledgeBase }) {
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
@@ -733,158 +746,158 @@ function ReactFlowMindMap({ knowledgeBase }: { knowledgeBase: KnowledgeBase }) {
         </div>
       </motion.div>
 
-             {/* React Flow Container */}
-       <motion.div
-         initial={{ opacity: 0, y: 20 }}
-         animate={{ opacity: 1, y: 0 }}
-         transition={{ delay: 0.1 }}
-         className="grid grid-cols-1 lg:grid-cols-3 gap-6"
-       >
-         {/* Main Mind Map */}
-         <div className="lg:col-span-2">
-           <div 
-             className="bg-white/[0.02] border border-white/[0.08] rounded-lg overflow-hidden"
-             style={{ height: '600px' }}
-           >
-             <ReactFlow
-               nodes={nodes}
-               edges={edges}
-               onNodesChange={onNodesChange}
-               onEdgesChange={onEdgesChange}
-               onNodeClick={onNodeClick}
-               nodeTypes={nodeTypes}
-               fitView
-               fitViewOptions={{ padding: 0.2 }}
-               style={{ background: '#030303' }}
-               nodesDraggable={true}
-               nodesConnectable={false}
-               elementsSelectable={true}
-             >
-               <Background 
-                 variant={BackgroundVariant.Dots} 
-                 gap={20} 
-                 size={1}
-                 color="#ffffff10"
-               />
-               <Controls 
-                 style={{
-                   background: 'rgba(0, 0, 0, 0.8)',
-                   border: '1px solid rgba(255, 255, 255, 0.1)',
-                 }}
-               />
-             </ReactFlow>
-           </div>
-         </div>
+      {/* React Flow Container */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="grid grid-cols-1 lg:grid-cols-3 gap-6"
+      >
+        {/* Main Mind Map */}
+        <div className="lg:col-span-2">
+          <div 
+            className="bg-white/[0.02] border border-white/[0.08] rounded-lg overflow-hidden"
+            style={{ height: '600px' }}
+          >
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onNodeClick={onNodeClick}
+              nodeTypes={nodeTypes}
+              fitView
+              fitViewOptions={{ padding: 0.2 }}
+              style={{ background: '#030303' }}
+              nodesDraggable={true}
+              nodesConnectable={false}
+              elementsSelectable={true}
+            >
+              <Background 
+                variant={BackgroundVariant.Dots} 
+                gap={20} 
+                size={1}
+                color="#ffffff10"
+              />
+              <Controls 
+                style={{
+                  background: 'rgba(0, 0, 0, 0.8)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                }}
+              />
+            </ReactFlow>
+          </div>
+        </div>
 
-         {/* Detail Panel */}
-         <div className="lg:col-span-1">
-           <Card className="bg-white/[0.02] border-white/[0.08] h-[600px] overflow-y-auto">
-             <CardHeader>
-               <CardTitle className="text-white text-lg flex items-center gap-2">
-                 <BookOpen className="h-5 w-5" />
-                 {selectedPaper ? 'Paper Details' : 'Select a Paper'}
-               </CardTitle>
-             </CardHeader>
-             <CardContent>
-               {selectedPaper ? (
-                 <motion.div
-                   initial={{ opacity: 0, y: 20 }}
-                   animate={{ opacity: 1, y: 0 }}
-                   className="space-y-4"
-                 >
-                   {/* Title and Authors */}
-                   <div>
-                     <h3 className="text-white font-semibold text-base leading-tight mb-2">
-                       {selectedPaper.title}
-                     </h3>
-                     <p className="text-white/70 text-sm">
-                       {selectedPaper.authors.join(', ')}
-                     </p>
-                     <p className="text-white/60 text-sm">
-                       {selectedPaper.venue} • {selectedPaper.year}
-                     </p>
-                   </div>
+        {/* Detail Panel */}
+        <div className="lg:col-span-1">
+          <Card className="bg-white/[0.02] border-white/[0.08] h-[600px] overflow-y-auto">
+            <CardHeader>
+              <CardTitle className="text-white text-lg flex items-center gap-2">
+                <BookOpen className="h-5 w-5" />
+                {selectedPaper ? 'Paper Details' : 'Select a Paper'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {selectedPaper ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="space-y-4"
+                >
+                  {/* Title and Authors */}
+                  <div>
+                    <h3 className="text-white font-semibold text-base leading-tight mb-2">
+                      {selectedPaper.title}
+                    </h3>
+                    <p className="text-white/70 text-sm">
+                      {selectedPaper.authors.join(', ')}
+                    </p>
+                    <p className="text-white/60 text-sm">
+                      {selectedPaper.venue} • {selectedPaper.year}
+                    </p>
+                  </div>
 
-                   {/* Quality and Citations */}
-                   <div className="flex items-center gap-4">
-                     <Badge className={cn("text-xs", getQualityColor(selectedPaper.qualityScore))}>
-                       Quality: {selectedPaper.qualityScore}
-                     </Badge>
-                     <div className="flex items-center gap-1 text-white/60 text-sm">
-                       <Star className="h-4 w-4" />
-                       <span>{selectedPaper.citations.toLocaleString()} citations</span>
-                     </div>
-                   </div>
+                  {/* Quality and Citations */}
+                  <div className="flex items-center gap-4">
+                    <Badge className={cn("text-xs", getQualityColor(selectedPaper.qualityScore))}>
+                      Quality: {selectedPaper.qualityScore}
+                    </Badge>
+                    <div className="flex items-center gap-1 text-white/60 text-sm">
+                      <Star className="h-4 w-4" />
+                      <span>{selectedPaper.citations.toLocaleString()} citations</span>
+                    </div>
+                  </div>
 
-                   {/* Abstract */}
-                   <div>
-                     <h4 className="text-white font-medium mb-2">Abstract</h4>
-                     <p className="text-white/70 text-sm leading-relaxed">
-                       {selectedPaper.abstract}
-                     </p>
-                   </div>
+                  {/* Abstract */}
+                  <div>
+                    <h4 className="text-white font-medium mb-2">Abstract</h4>
+                    <p className="text-white/70 text-sm leading-relaxed">
+                      {selectedPaper.abstract}
+                    </p>
+                  </div>
 
-                   {/* Topics */}
-                   <div>
-                     <h4 className="text-white font-medium mb-2">Topics</h4>
-                     <div className="flex flex-wrap gap-1">
-                       {selectedPaper.topics.map(topic => (
-                         <Badge key={topic} variant="outline" className="text-xs border-white/[0.1] text-white/60">
-                           {topic}
-                         </Badge>
-                       ))}
-                     </div>
-                   </div>
+                  {/* Topics */}
+                  <div>
+                    <h4 className="text-white font-medium mb-2">Topics</h4>
+                    <div className="flex flex-wrap gap-1">
+                      {selectedPaper.topics.map(topic => (
+                        <Badge key={topic} variant="outline" className="text-xs border-white/[0.1] text-white/60">
+                          {topic}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
 
-                   {/* Key Insights */}
-                   <div>
-                     <h4 className="text-white font-medium mb-2">Key Insights</h4>
-                     <ul className="space-y-1">
-                       {selectedPaper.keyInsights.map((insight, idx) => (
-                         <li key={idx} className="text-white/70 text-sm flex items-start gap-2">
-                           <span className="text-indigo-400 mt-1">•</span>
-                           <span>{insight}</span>
-                         </li>
-                       ))}
-                     </ul>
-                   </div>
+                  {/* Key Insights */}
+                  <div>
+                    <h4 className="text-white font-medium mb-2">Key Insights</h4>
+                    <ul className="space-y-1">
+                      {selectedPaper.keyInsights.map((insight, idx) => (
+                        <li key={idx} className="text-white/70 text-sm flex items-start gap-2">
+                          <span className="text-indigo-400 mt-1">•</span>
+                          <span>{insight}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
 
-                   {/* Connected Papers */}
-                   {selectedPaper.connections.length > 0 && (
-                     <div>
-                       <h4 className="text-white font-medium mb-2">Connected Papers</h4>
-                       <div className="space-y-2">
-                         {selectedPaper.connections.map(connectionId => {
-                           const connectedPaper = knowledgeBase.papers.find(p => p.id === connectionId);
-                           return connectedPaper ? (
-                             <button
-                               key={connectionId}
-                               className="w-full p-2 bg-white/[0.02] border border-white/[0.05] rounded text-left hover:bg-white/[0.04] transition-colors"
-                               onClick={() => setSelectedNode(connectionId)}
-                             >
-                               <p className="text-white/80 text-sm font-medium line-clamp-1">
-                                 {connectedPaper.title}
-                               </p>
-                               <p className="text-white/60 text-xs">
-                                 {connectedPaper.authors[0]} et al. ({connectedPaper.year})
-                               </p>
-                             </button>
-                           ) : null;
-                         })}
-                       </div>
-                     </div>
-                   )}
-                 </motion.div>
-               ) : (
-                 <div className="text-center text-white/60 mt-8">
-                   <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-40" />
-                   <p>Click on a paper node to explore its details and connections</p>
-                 </div>
-               )}
-             </CardContent>
-           </Card>
-         </div>
-       </motion.div>
+                  {/* Connected Papers */}
+                  {selectedPaper.connections.length > 0 && (
+                    <div>
+                      <h4 className="text-white font-medium mb-2">Connected Papers</h4>
+                      <div className="space-y-2">
+                        {selectedPaper.connections.map(connectionId => {
+                          const connectedPaper = knowledgeBase.papers.find(p => p.id === connectionId);
+                          return connectedPaper ? (
+                            <button
+                              key={connectionId}
+                              className="w-full p-2 bg-white/[0.02] border border-white/[0.05] rounded text-left hover:bg-white/[0.04] transition-colors"
+                              onClick={() => setSelectedNode(connectionId)}
+                            >
+                              <p className="text-white/80 text-sm font-medium line-clamp-1">
+                                {connectedPaper.title}
+                              </p>
+                              <p className="text-white/60 text-xs">
+                                {connectedPaper.authors[0]} et al. ({connectedPaper.year})
+                              </p>
+                            </button>
+                          ) : null;
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
+              ) : (
+                <div className="text-center text-white/60 mt-8">
+                  <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-40" />
+                  <p>Click on a paper node to explore its details and connections</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </motion.div>
 
       {/* Connection Analysis */}
       <motion.div
@@ -966,6 +979,234 @@ function ReactFlowMindMap({ knowledgeBase }: { knowledgeBase: KnowledgeBase }) {
   );
 }
 
+function KnowledgeBaseViewerContent() {
+  const navigate = useNavigate();
+  const { id } = useParams();
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [knowledgeBase, setKnowledgeBase] = useState<KnowledgeBase | null>(null);
+  const [connectionsData, setConnectionsData] = useState<ConnectionsData | null>(null);
+  const [insightsData, setInsightsData] = useState<InsightsData | null>(null);
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [generatingAnalysis, setGeneratingAnalysis] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedPaper, setSelectedPaper] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'network'>('grid');
+  const [filterTopic, setFilterTopic] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("papers");
+
+  // Generate analysis function - moved before useEffect that uses it
+  const generateAnalysis = useCallback(async () => {
+    if (!id || generatingAnalysis) return;
+    
+    setGeneratingAnalysis(true);
+    try {
+      const result = await apiClient.generateKnowledgebaseAnalysis(id) as any;
+      // Set all the analysis data
+      if (result?.connections) setConnectionsData(result.connections);
+      if (result?.insights) setInsightsData(result.insights);
+      if (result?.analytics) setAnalyticsData(result.analytics);
+    } catch (error) {
+      console.error('Error generating analysis:', error);
+    } finally {
+      setGeneratingAnalysis(false);
+    }
+  }, [id, generatingAnalysis]);
+
+  // Load knowledge base data
+  useEffect(() => {
+    const loadKnowledgeBaseData = async () => {
+      if (!id || !user) return;
+
+      try {
+        setLoading(true);
+        
+        // Load KB details
+        const kbResponse = await apiClient.getKnowledgebase(id) as KnowledgeBaseData;
+        
+        // Load papers in this KB
+        const papersResponse = await apiClient.getKnowledgebasePapers(id) as PaperData[];
+        
+        // Transform to UI format
+        const transformedPapers: Paper[] = papersResponse.map((paper) => ({
+          id: paper.id,
+          title: paper.title,
+          authors: paper.authors || [],
+          year: paper.year || new Date().getFullYear(),
+          citations: paper.citations || 0,
+          abstract: paper.abstract || "",
+          venue: "arXiv", // Default since we don't have venue in real data
+          topics: paper.topics || [],
+          qualityScore: paper.quality_score || 8.5 + Math.random() * 1.5,
+          connections: [], // Will be populated from connections data
+          keyInsights: [] // Will be generated or populated later
+        }));
+
+        // Create the knowledge base object in the expected format
+        const kb: KnowledgeBase = {
+          id: kbResponse.id,
+          name: kbResponse.name,
+          description: kbResponse.description || "",
+          paper_count: kbResponse.paper_count,
+          created_at: kbResponse.created_at,
+          updated_at: kbResponse.updated_at,
+          tags: kbResponse.tags || [],
+          status: kbResponse.status || "active",
+          papers: transformedPapers
+        };
+
+        setKnowledgeBase(kb);
+        
+      } catch (error) {
+        console.error('Error loading knowledge base:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadKnowledgeBaseData();
+  }, [id, user]);
+
+  // Load analysis data based on active tab
+  useEffect(() => {
+    if (!id || !user || !activeTab) return;
+    
+    const loadAnalysisData = async () => {
+      setAnalysisLoading(true);
+      try {
+        if (activeTab === "connections" && !connectionsData) {
+          const data = await apiClient.getKnowledgebaseConnections(id);
+          if (!data) {
+            await generateAnalysis();
+          } else {
+            setConnectionsData(data as ConnectionsData);
+          }
+        }
+        
+        if (activeTab === "insights" && !insightsData) {
+          const data = await apiClient.getKnowledgebaseInsights(id);
+          if (!data) {
+            await generateAnalysis();
+          } else {
+            setInsightsData(data as InsightsData);
+          }
+        }
+        
+        if (activeTab === "analytics" && !analyticsData) {
+          const data = await apiClient.getKnowledgebaseAnalytics(id);
+          if (!data) {
+            await generateAnalysis();
+          } else {
+            setAnalyticsData(data as AnalyticsData);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading analysis data:', error);
+      } finally {
+        setAnalysisLoading(false);
+      }
+    };
+    
+    loadAnalysisData();
+  }, [activeTab, id, user, generateAnalysis]);
+
+  // Derived state with useMemo
+  const filteredPapers = useMemo(() => {
+    if (!knowledgeBase) return [];
+    return knowledgeBase.papers.filter(paper => {
+      const matchesSearch = paper.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           paper.abstract.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           paper.authors.some(author => author.toLowerCase().includes(searchQuery.toLowerCase()));
+      
+      const matchesTopic = !filterTopic || paper.topics.includes(filterTopic);
+      
+      return matchesSearch && matchesTopic;
+    });
+  }, [knowledgeBase, searchQuery, filterTopic]);
+
+  const allTopics = useMemo(() => {
+    if (!knowledgeBase) return [];
+    const topics = new Set<string>();
+    knowledgeBase.papers.forEach(paper => {
+      paper.topics.forEach(topic => topics.add(topic));
+    });
+    return Array.from(topics);
+  }, [knowledgeBase]);
+
+  const insights = useMemo(() => {
+    if (!knowledgeBase) return {
+      totalCitations: 0,
+      avgQuality: 0,
+      yearRange: { min: 0, max: 0 },
+      topVenues: []
+    };
+    
+    const totalCitations = knowledgeBase.papers.reduce((sum, paper) => sum + paper.citations, 0);
+    const avgQuality = knowledgeBase.papers.reduce((sum, paper) => sum + paper.qualityScore, 0) / knowledgeBase.papers.length;
+    const yearRange = {
+      min: Math.min(...knowledgeBase.papers.map(p => p.year)),
+      max: Math.max(...knowledgeBase.papers.map(p => p.year))
+    };
+    const topVenues = knowledgeBase.papers.reduce((acc, paper) => {
+      acc[paper.venue] = (acc[paper.venue] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return {
+      totalCitations,
+      avgQuality: Math.round(avgQuality * 10) / 10,
+      yearRange,
+      topVenues: Object.entries(topVenues).sort(([,a], [,b]) => b - a).slice(0, 3)
+    };
+  }, [knowledgeBase]);
+
+  const handlePaperClick = (paper: Paper) => {
+    // Use the paper's original ID from the database
+    const paperId = paper._originalData?.arxiv_id || paper.id;
+    navigate(`/document/${paperId}`, { state: { paper } });
+  };
+
+  // Early return if loading
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#030303] pt-20 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 text-indigo-500 animate-spin mx-auto mb-4" />
+          <p className="text-white/60">Loading knowledge base...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!knowledgeBase) {
+    return (
+      <div className="min-h-screen bg-[#030303] pt-20 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-white/60 mb-4">Knowledge base not found</p>
+          <Link to="/knowledge-canvas">
+            <Button variant="outline" className="border-white/[0.1] text-white">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Canvas
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Default empty insights data
+  const defaultInsightsData: InsightsData = {
+    researchTrends: [],
+    researchGaps: [],
+    keyConnections: [],
+    emergingAreas: [],
+    suggestedQuestions: []
+  };
+
+  // Use either the loaded insights data or the default empty data
+  const currentInsightsData = insightsData || defaultInsightsData;
+
   return (
     <AuthGuard>
       <div className="min-h-screen bg-[#030303] pt-20">
@@ -1031,18 +1272,22 @@ function ReactFlowMindMap({ knowledgeBase }: { knowledgeBase: KnowledgeBase }) {
           </motion.div>
 
           {/* Main Content */}
-          <Tabs defaultValue="papers" className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-4 bg-white/[0.02] border-white/[0.1]">
               <TabsTrigger value="papers" className="data-[state=active]:bg-white/[0.1] text-white">
+                <BookOpen className="h-4 w-4 mr-2" />
                 Papers
               </TabsTrigger>
               <TabsTrigger value="connections" className="data-[state=active]:bg-white/[0.1] text-white">
+                <Network className="h-4 w-4 mr-2" />
                 Connections
               </TabsTrigger>
               <TabsTrigger value="insights" className="data-[state=active]:bg-white/[0.1] text-white">
+                <Lightbulb className="h-4 w-4 mr-2" />
                 Insights
               </TabsTrigger>
               <TabsTrigger value="analytics" className="data-[state=active]:bg-white/[0.1] text-white">
+                <BarChart3 className="h-4 w-4 mr-2" />
                 Analytics
               </TabsTrigger>
             </TabsList>
@@ -1126,7 +1371,7 @@ function ReactFlowMindMap({ knowledgeBase }: { knowledgeBase: KnowledgeBase }) {
                           "bg-white/[0.02] border-white/[0.08] hover:bg-white/[0.04] transition-all duration-300 cursor-pointer group",
                           selectedPaper === paper.id && "ring-2 ring-indigo-500 bg-indigo-500/5"
                         )}
-                        onClick={() => setSelectedPaper(selectedPaper === paper.id ? null : paper.id)}
+                        onClick={() => handlePaperClick(paper)}
                       >
                         <CardHeader className="pb-3">
                           <div className="flex items-start justify-between gap-2">
@@ -1186,7 +1431,7 @@ function ReactFlowMindMap({ knowledgeBase }: { knowledgeBase: KnowledgeBase }) {
                           "bg-white/[0.02] border-white/[0.08] hover:bg-white/[0.04] transition-all duration-300 cursor-pointer",
                           selectedPaper === paper.id && "ring-2 ring-indigo-500 bg-indigo-500/5"
                         )}
-                        onClick={() => setSelectedPaper(selectedPaper === paper.id ? null : paper.id)}
+                        onClick={() => handlePaperClick(paper)}
                       >
                         <CardContent className="p-6">
                           <div className="flex gap-4">
@@ -1258,146 +1503,284 @@ function ReactFlowMindMap({ knowledgeBase }: { knowledgeBase: KnowledgeBase }) {
 
             {/* Connections Tab */}
             <TabsContent value="connections" className="mt-6">
-              <ReactFlowMindMap knowledgeBase={knowledgeBase} />
+              <ResearchExplorer knowledgeBase={knowledgeBase} insightsData={currentInsightsData} activeTab="connections" />
             </TabsContent>
 
             {/* Insights Tab */}
             <TabsContent value="insights" className="mt-6">
-              <ResearchExplorer knowledgeBase={knowledgeBase} />
+              <ResearchExplorer knowledgeBase={knowledgeBase} insightsData={currentInsightsData} activeTab="insights" />
             </TabsContent>
 
             {/* Analytics Tab */}
             <TabsContent value="analytics" className="mt-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {analysisLoading || generatingAnalysis ? (
                 <Card className="bg-white/[0.02] border-white/[0.08]">
-                  <CardHeader>
-                    <CardTitle className="text-white text-lg flex items-center gap-2">
-                      <Target className="h-5 w-5" />
-                      Key Themes
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {allTopics.slice(0, 5).map(topic => (
-                        <div key={topic} className="flex items-center justify-between">
-                          <span className="text-white/70">{topic}</span>
-                          <Badge variant="outline" className="border-white/[0.1] text-white/60">
-                            {knowledgeBase.papers.filter(p => p.topics.includes(topic)).length}
-                          </Badge>
+                  <CardContent className="p-12 text-center">
+                    <Loader2 className="h-12 w-12 text-indigo-500 animate-spin mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-white mb-2">
+                      {generatingAnalysis ? "Generating Analysis..." : "Loading Analytics..."}
+                    </h3>
+                    <p className="text-white/60">Calculating statistics and trends...</p>
+                  </CardContent>
+                </Card>
+              ) : analyticsData ? (
+                // Use real analytics data
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <Card className="bg-white/[0.02] border-white/[0.08]">
+                    <CardHeader>
+                      <CardTitle className="text-white text-lg flex items-center gap-2">
+                        <Target className="h-5 w-5" />
+                        Key Themes
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {analyticsData.keyThemes.slice(0, 5).map(item => (
+                          <div key={item.theme} className="flex items-center justify-between">
+                            <span className="text-white/70">{item.theme}</span>
+                            <Badge variant="outline" className="border-white/[0.1] text-white/60">
+                              {item.count}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-white/[0.02] border-white/[0.08]">
+                    <CardHeader>
+                      <CardTitle className="text-white text-lg flex items-center gap-2">
+                        <TrendingUp className="h-5 w-5" />
+                        Top Venues
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {analyticsData.topVenues.map(item => (
+                          <div key={item.venue} className="flex items-center justify-between">
+                            <span className="text-white/70">{item.venue}</span>
+                            <Badge variant="outline" className="border-white/[0.1] text-white/60">
+                              {item.count}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-white/[0.02] border-white/[0.08]">
+                    <CardHeader>
+                      <CardTitle className="text-white text-lg flex items-center gap-2">
+                        <Award className="h-5 w-5" />
+                        Quality Distribution
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-white/70">Excellent (9.5+)</span>
+                          <span className="text-emerald-300">{knowledgeBase.papers.filter(p => p.qualityScore >= 9.5).length}</span>
                         </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-white/[0.02] border-white/[0.08]">
-                  <CardHeader>
-                    <CardTitle className="text-white text-lg flex items-center gap-2">
-                      <TrendingUp className="h-5 w-5" />
-                      Top Venues
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {insights.topVenues.map(([venue, count]) => (
-                        <div key={venue} className="flex items-center justify-between">
-                          <span className="text-white/70">{venue}</span>
-                          <Badge variant="outline" className="border-white/[0.1] text-white/60">
-                            {count}
-                          </Badge>
+                        <div className="flex items-center justify-between">
+                          <span className="text-white/70">High (9.0+)</span>
+                          <span className="text-green-300">{knowledgeBase.papers.filter(p => p.qualityScore >= 9.0 && p.qualityScore < 9.5).length}</span>
                         </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+                        <div className="flex items-center justify-between">
+                          <span className="text-white/70">Good (8.5+)</span>
+                          <span className="text-yellow-300">{knowledgeBase.papers.filter(p => p.qualityScore >= 8.5 && p.qualityScore < 9.0).length}</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
 
-                <Card className="bg-white/[0.02] border-white/[0.08]">
-                  <CardHeader>
-                    <CardTitle className="text-white text-lg flex items-center gap-2">
-                      <Award className="h-5 w-5" />
-                      Quality Distribution
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-white/70">Excellent (9.5+)</span>
-                        <span className="text-emerald-300">{knowledgeBase.papers.filter(p => p.qualityScore >= 9.5).length}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-white/70">High (9.0+)</span>
-                        <span className="text-green-300">{knowledgeBase.papers.filter(p => p.qualityScore >= 9.0 && p.qualityScore < 9.5).length}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-white/70">Good (8.5+)</span>
-                        <span className="text-yellow-300">{knowledgeBase.papers.filter(p => p.qualityScore >= 8.5 && p.qualityScore < 9.0).length}</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-white/[0.02] border-white/[0.08] md:col-span-2">
-                  <CardHeader>
-                    <CardTitle className="text-white text-lg flex items-center gap-2">
-                      <BarChart3 className="h-5 w-5" />
-                      Citation Trends
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
+                  <Card className="bg-white/[0.02] border-white/[0.08] md:col-span-2">
+                    <CardHeader>
+                      <CardTitle className="text-white text-lg flex items-center gap-2">
+                        <BarChart3 className="h-5 w-5" />
+                        Citation Trends
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-white/60 text-sm">Total Citations</p>
+                            <p className="text-white text-2xl font-bold">{analyticsData.citationTrends.totalCitations.toLocaleString()}</p>
+                          </div>
+                          <div>
+                            <p className="text-white/60 text-sm">Average Quality</p>
+                            <p className="text-white text-2xl font-bold">{analyticsData.citationTrends.averageQuality.toFixed(1)}/10</p>
+                          </div>
+                        </div>
                         <div>
-                          <p className="text-white/60 text-sm">Total Citations</p>
-                          <p className="text-white text-2xl font-bold">{insights.totalCitations.toLocaleString()}</p>
-                        </div>
-                        <div>
-                          <p className="text-white/60 text-sm">Average Quality</p>
-                          <p className="text-white text-2xl font-bold">{insights.avgQuality}/10</p>
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-white/60 text-sm mb-2">Top Cited Papers</p>
-                        <div className="space-y-2">
-                          {knowledgeBase.papers
-                            .sort((a, b) => b.citations - a.citations)
-                            .slice(0, 3)
-                            .map(paper => (
-                              <div key={paper.id} className="flex items-center justify-between p-2 bg-white/[0.02] border border-white/[0.05] rounded">
+                          <p className="text-white/60 text-sm mb-2">Top Cited Papers</p>
+                          <div className="space-y-2">
+                            {analyticsData.citationTrends.topCitedPapers.map((paper, idx) => (
+                              <div key={idx} className="flex items-center justify-between p-2 bg-white/[0.02] border border-white/[0.05] rounded">
                                 <span className="text-white/80 text-sm line-clamp-1">{paper.title}</span>
                                 <span className="text-white/60 text-xs">{paper.citations.toLocaleString()}</span>
                               </div>
                             ))}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
 
-                <Card className="bg-white/[0.02] border-white/[0.08]">
-                  <CardHeader>
-                    <CardTitle className="text-white text-lg flex items-center gap-2">
-                      <Calendar className="h-5 w-5" />
-                      Timeline
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-white/70">First Paper</span>
-                        <span className="text-white/60">{insights.yearRange.min}</span>
+                  <Card className="bg-white/[0.02] border-white/[0.08]">
+                    <CardHeader>
+                      <CardTitle className="text-white text-lg flex items-center gap-2">
+                        <Calendar className="h-5 w-5" />
+                        Timeline
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-white/70">First Paper</span>
+                          <span className="text-white/60">{analyticsData.timeline.firstPaper}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-white/70">Latest Paper</span>
+                          <span className="text-white/60">{analyticsData.timeline.latestPaper}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-white/70">Time Span</span>
+                          <span className="text-white/60">{analyticsData.timeline.timeSpan}</span>
+                        </div>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-white/70">Latest Paper</span>
-                        <span className="text-white/60">{insights.yearRange.max}</span>
+                    </CardContent>
+                  </Card>
+                </div>
+              ) : (
+                // Fallback to computed analytics from papers
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <Card className="bg-white/[0.02] border-white/[0.08]">
+                    <CardHeader>
+                      <CardTitle className="text-white text-lg flex items-center gap-2">
+                        <Target className="h-5 w-5" />
+                        Key Themes
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {allTopics.slice(0, 5).map(topic => (
+                          <div key={topic} className="flex items-center justify-between">
+                            <span className="text-white/70">{topic}</span>
+                            <Badge variant="outline" className="border-white/[0.1] text-white/60">
+                              {knowledgeBase.papers.filter(p => p.topics.includes(topic)).length}
+                            </Badge>
+                          </div>
+                        ))}
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-white/70">Time Span</span>
-                        <span className="text-white/60">{insights.yearRange.max - insights.yearRange.min} years</span>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-white/[0.02] border-white/[0.08]">
+                    <CardHeader>
+                      <CardTitle className="text-white text-lg flex items-center gap-2">
+                        <TrendingUp className="h-5 w-5" />
+                        Top Venues
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {insights.topVenues.map(([venue, count]) => (
+                          <div key={venue} className="flex items-center justify-between">
+                            <span className="text-white/70">{venue}</span>
+                            <Badge variant="outline" className="border-white/[0.1] text-white/60">
+                              {count}
+                            </Badge>
+                          </div>
+                        ))}
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-white/[0.02] border-white/[0.08]">
+                    <CardHeader>
+                      <CardTitle className="text-white text-lg flex items-center gap-2">
+                        <Award className="h-5 w-5" />
+                        Quality Distribution
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {knowledgeBase.papers.map(paper => (
+                          <div key={paper.id} className="flex items-center justify-between">
+                            <span className="text-white/70">{paper.title}</span>
+                            <Badge className={cn("text-xs", getQualityColor(paper.qualityScore))}>
+                              {paper.qualityScore}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-white/[0.02] border-white/[0.08] md:col-span-2">
+                    <CardHeader>
+                      <CardTitle className="text-white text-lg flex items-center gap-2">
+                        <BarChart3 className="h-5 w-5" />
+                        Citation Trends
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-white/60 text-sm">Total Citations</p>
+                            <p className="text-white text-2xl font-bold">{insights.totalCitations.toLocaleString()}</p>
+                          </div>
+                          <div>
+                            <p className="text-white/60 text-sm">Average Quality</p>
+                            <p className="text-white text-2xl font-bold">{insights.avgQuality}/10</p>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-white/60 text-sm mb-2">Top Cited Papers</p>
+                          <div className="space-y-2">
+                            {knowledgeBase.papers
+                              .sort((a, b) => b.citations - a.citations)
+                              .slice(0, 3)
+                              .map(paper => (
+                                <div key={paper.id} className="flex items-center justify-between p-2 bg-white/[0.02] border border-white/[0.05] rounded">
+                                  <span className="text-white/80 text-sm line-clamp-1">{paper.title}</span>
+                                  <span className="text-white/60 text-xs">{paper.citations.toLocaleString()}</span>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-white/[0.02] border-white/[0.08]">
+                    <CardHeader>
+                      <CardTitle className="text-white text-lg flex items-center gap-2">
+                        <Calendar className="h-5 w-5" />
+                        Timeline
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-white/70">First Paper</span>
+                          <span className="text-white/60">{insights.yearRange.min}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-white/70">Latest Paper</span>
+                          <span className="text-white/60">{insights.yearRange.max}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-white/70">Time Span</span>
+                          <span className="text-white/60">{insights.yearRange.max - insights.yearRange.min} years</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
             </TabsContent>
           </Tabs>
 
