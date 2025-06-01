@@ -9,7 +9,6 @@ import { Input } from "~/components/ui/input";
 import { Badge } from "~/components/ui/badge";
 import { cn } from '~/lib/utils';
 import { AuthGuard, useAuth } from "~/components/auth-guard";
-import { Navigation } from "~/components/ui/navigation";
 import supabase from "~/lib/supabase.client";
 
 export const meta: MetaFunction = () => {
@@ -134,7 +133,6 @@ export default function KnowledgeCanvas() {
   return (
     <AuthGuard>
       <>
-        <Navigation user={user} />
         <div className="min-h-screen bg-[#030303] pt-20">
           <div className="container mx-auto px-4 py-8 max-w-6xl">
             {/* Header */}
@@ -155,7 +153,7 @@ export default function KnowledgeCanvas() {
                 </div>
                 <Button
                   onClick={handleCreateNew}
-                  className="bg-gradient-to-r from-indigo-500 to-rose-500 text-white"
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white"
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Create New
@@ -274,7 +272,7 @@ export default function KnowledgeCanvas() {
                         <div className="flex gap-2 pt-2">
                           <Button
                             size="sm"
-                            className="flex-1 bg-gradient-to-r from-indigo-500 to-rose-500 text-white"
+                            className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white"
                           >
                             <Eye className="h-3 w-3 mr-1" />
                             View
@@ -320,7 +318,7 @@ export default function KnowledgeCanvas() {
                 </p>
                 <Button
                   onClick={handleCreateNew}
-                  className="bg-gradient-to-r from-indigo-500 to-rose-500 text-white"
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white"
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Create Knowledge Base

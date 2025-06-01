@@ -35,10 +35,13 @@ export function AuthGuard({ children, fallback }: AuthGuardProps) {
         setUser(session?.user ?? null);
         
         if (event === 'SIGNED_IN' && session?.user) {
-          // User signed in, redirect to intended page or dashboard
+          // User signed in, redirect to intended page or stay on current page
           const params = new URLSearchParams(location.search);
-          const redirectTo = params.get('redirectTo') || '/dashboard';
-          navigate(redirectTo);
+          const redirectTo = params.get('redirectTo');
+          if (redirectTo) {
+            navigate(redirectTo);
+          }
+          // Don't auto-redirect if already on a valid page
         } else if (event === 'SIGNED_OUT') {
           // User signed out, redirect to home
           navigate('/');

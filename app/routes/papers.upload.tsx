@@ -5,6 +5,7 @@ import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { ArrowLeft, UploadCloud } from "lucide-react";
 import { AuthGuard } from "~/components/auth-guard";
+import { apiClient } from "~/lib/api";
 
 export const meta: MetaFunction = () => {
   return [
@@ -18,19 +19,33 @@ export async function action({ request }: ActionFunctionArgs) {
   const paperFile = formData.get("paperUpload");
 
   if (paperFile instanceof File && paperFile.name && paperFile.size > 0) {
-    console.log("File Name:", paperFile.name);
-    console.log("File Size:", paperFile.size);
-    console.log("File Type:", paperFile.type);
-    // Here you would typically handle the file, e.g., save to a storage, process, etc.
-    // For now, just returning a success message.
-    return json({ success: true, fileName: paperFile.name, fileSize: paperFile.size } as const);
+    try {
+      // Create new FormData for API
+      const apiFormData = new FormData();
+      apiFormData.append("file", paperFile);
+      
+      // Upload to DataEngineX API
+      const result = await apiClient.uploadPaper(apiFormData);
+      
+      return json({ 
+        success: true, 
+        fileName: paperFile.name, 
+        fileSize: paperFile.size,
+        paperId: result.paper?.id,
+        message: result.message 
+      } as const);
+    } catch (error) {
+      console.error("Upload error:", error);
+      return json({ 
+        success: false, 
+        error: `Upload failed: ${error instanceof Error ? error.message : 'Unknown error'}` 
+      } as const, { status: 500 });
+    }
   } else if (paperFile instanceof File && paperFile.size === 0) {
     return json({ success: false, error: "The selected file is empty. Please select a valid file." } as const, { status: 400 });
   } else {
     return json({ success: false, error: "No file selected or invalid file." } as const, { status: 400 });
   }
-  // Potentially redirect after successful upload
-  // return redirect("/library");
 }
 
 function PaperUploadPage() {

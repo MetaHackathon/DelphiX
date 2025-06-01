@@ -21,6 +21,7 @@ import { cn } from "~/lib/utils";
 import { AuthGuard, useAuth } from "~/components/auth-guard";
 import { useEffect, useState } from "react";
 import supabase from "~/lib/supabase.client";
+import { apiClient } from "~/lib/api";
 
 export const meta: MetaFunction = () => {
   return [
@@ -49,30 +50,44 @@ function DashboardContent() {
     try {
       setLoading(true);
 
-      // Get user stats (if the RPC exists)
+      // Get user stats from DataEngineX API
       try {
-        const { data: statsData } = await supabase.rpc('get_user_stats', { p_user_id: user.id });
-        setStats(statsData || {});
+        const statsData = await apiClient.getLibraryStats();
+        setStats(statsData);
       } catch (error) {
-        console.log('Stats not available:', error);
-        setStats({});
+        console.log('API stats not available, using fallback:', error);
+        // Fallback to supabase
+        try {
+          const { data: statsData } = await supabase.rpc('get_user_stats', { p_user_id: user.id });
+          setStats(statsData || {});
+        } catch (supabaseError) {
+          console.log('Supabase stats not available:', supabaseError);
+          setStats({});
+        }
       }
 
-      // Get recent papers (if table exists)
+      // Get recent papers from DataEngineX API
       try {
-        const { data: papersData } = await supabase
-          .from('papers')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(5);
-        setRecentPapers(papersData || []);
+        const papersData = await apiClient.getLibrary();
+        setRecentPapers(papersData.slice(0, 5)); // Get first 5 papers
       } catch (error) {
-        console.log('Papers table not available:', error);
-        setRecentPapers([]);
+        console.log('API papers not available, using fallback:', error);
+        // Fallback to supabase
+        try {
+          const { data: papersData } = await supabase
+            .from('papers')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(5);
+          setRecentPapers(papersData || []);
+        } catch (supabaseError) {
+          console.log('Supabase papers not available:', supabaseError);
+          setRecentPapers([]);
+        }
       }
 
-      // Get recent chat sessions (if table exists)
+      // Get recent chat sessions (keep supabase for now)
       try {
         const { data: chatsData } = await supabase
           .from('chat_sessions')
@@ -86,7 +101,7 @@ function DashboardContent() {
         setRecentChats([]);
       }
 
-      // Get canvases (if table exists)
+      // Get canvases (keep supabase for now)
       try {
         const { data: canvasesData } = await supabase
           .from('canvases')

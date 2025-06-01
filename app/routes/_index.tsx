@@ -56,12 +56,11 @@ function SearchInterface() {
     if (!searchQuery.trim()) return;
     
     setIsSearching(true);
-    // Simulate search delay
+    // Navigate to search page with query
     setTimeout(() => {
       setIsSearching(false);
-      // Navigate to knowledge canvas with demo results
-      window.location.href = '/knowledge-canvas';
-    }, 1500);
+      window.location.href = `/search?q=${encodeURIComponent(searchQuery)}`;
+    }, 500);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
