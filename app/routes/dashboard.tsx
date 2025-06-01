@@ -129,9 +129,9 @@ function DashboardContent() {
     },
     {
       title: "Document Viewer",
-      description: "View PDF with highlights & AI chat",
+      description: "Browse and open your PDFs",
       icon: FileText,
-      href: "/document/sample",
+      href: "/document",
       color: "from-cyan-500 to-blue-500",
     },
     {
