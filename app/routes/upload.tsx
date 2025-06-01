@@ -1,12 +1,13 @@
-import type { ActionFunctionArgs, MetaFunction } from "@remix-run/node";
+import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { Form, useActionData, useNavigation, Link } from "@remix-run/react";
+import { Form, useActionData, useNavigation } from "@remix-run/react";
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
+import { Input } from "~/components/ui/input";
+import { Textarea } from "~/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
-import { UploadCloud, Loader2, ArrowLeft } from "lucide-react";
+import { UploadCloud, Loader2 } from "lucide-react";
 import { cn } from "~/lib/utils";
-import { AuthGuard } from "~/components/auth-guard";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -14,7 +15,7 @@ import { AuthGuard } from "~/components/auth-guard";
 export interface PaperProcessResponse {
   success: boolean;
   message: string;
-  paper?: Record<string, any>; // Adjust when backend shape is finalized
+  paper?: Record<string, any>; // Adjust when you know full shape
   analysis_preview: string | null;
   processing_time: number;
 }
@@ -40,31 +41,33 @@ export async function action({ request }: ActionFunctionArgs) {
   const year = formData.get("year");
   const topics = formData.get("topics");
 
-  // -------- Basic validations --------
+  // ------------ Basic validations -------------
   if (!(file instanceof File) || !file.name) {
     return json({ success: false, error: "Please select a PDF file to upload." } as const, { status: 400 });
   }
-  if (file.size > 50 * 1024 * 1024) {
+  if (file.size > 50 * 1024 * 1024) { // 50 MB
     return json({ success: false, error: "File size exceeds 50 MB limit." } as const, { status: 400 });
   }
-  if (year && typeof year === "string" && year.length > 0 && !/^[0-9]{4}$/.test(year)) {
+
+  if (year && typeof year === "string" && !/^[0-9]{4}$/.test(year)) {
     return json({ success: false, error: "Year must be a 4-digit number." } as const, { status: 400 });
   }
 
-  // Build backend form-data
-  const backendForm = new FormData();
-  backendForm.append("file", file, file.name);
-  if (title) backendForm.append("title", title.toString());
-  if (authors) backendForm.append("authors", authors.toString());
-  if (abstract) backendForm.append("abstract", abstract.toString());
-  if (year) backendForm.append("year", year.toString());
-  if (topics) backendForm.append("topics", topics.toString());
+  // ------------- Build form data for backend -------------
+  const backendFormData = new FormData();
+  backendFormData.append("file", file, file.name);
+  if (title) backendFormData.append("title", title.toString());
+  if (authors) backendFormData.append("authors", authors.toString());
+  if (abstract) backendFormData.append("abstract", abstract.toString());
+  if (year) backendFormData.append("year", year.toString());
+  if (topics) backendFormData.append("topics", topics.toString());
 
+  // ------------- Make request to FastAPI backend -------------
   try {
     const resp = await fetch("http://localhost:8000/api/library/upload", {
       method: "POST",
-      body: backendForm,
-      // TODO: add Authorization header when backend requires auth
+      body: backendFormData,
+      // TODO: If authentication is re-enabled, add Authorization header here.
     });
 
     if (!resp.ok) {
@@ -81,24 +84,35 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 // ---------------------------------------------------------------------------
-// Component
+// Component (client-side)
 // ---------------------------------------------------------------------------
-function PaperUploadPage() {
+export default function UploadPage() {
+  // Selected file + immediate client-side validation
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [yearValue, setYearValue] = useState("");
 
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const isUploading = navigation.state === "submitting";
 
+  // When server response arrives, reset file so user can re-upload easily
   const handleFileChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
-    const f = e.target.files?.[0] || null;
-    setSelectedFile(f);
+    const file = e.target.files?.[0] || null;
+    setSelectedFile(file);
 
-    if (f && f.size > 50 * 1024 * 1024) {
+    if (file && file.size > 50 * 1024 * 1024) {
       setFileError("File size exceeds 50 MB limit");
     } else {
       setFileError(null);
+    }
+  };
+
+  const handleYearChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
+    const val = e.target.value;
+    // Allow empty or 4 digits only
+    if (val === "" || /^[0-9]{0,4}$/.test(val)) {
+      setYearValue(val);
     }
   };
 
@@ -107,22 +121,14 @@ function PaperUploadPage() {
       <Card className="w-full max-w-2xl bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] shadow-xl">
         <CardHeader>
           <CardTitle className="text-white text-2xl flex items-center gap-2">
-            <UploadCloud className="h-6 w-6" /> Upload Paper
+            <UploadCloud className="h-6 w-6" />
+            Upload Paper
           </CardTitle>
           <CardDescription className="text-white/60">
             Provide a PDF and optional metadata. The server will analyze it and return a preview.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {/* Back to dashboard button */}
-          <div className="mb-4">
-            <Button asChild variant="ghost" className="text-white/60 hover:text-white">
-              <Link to="/dashboard">
-                <ArrowLeft className="h-4 w-4 mr-2" /> Back to Dashboard
-              </Link>
-            </Button>
-          </div>
-
           <Form method="post" encType="multipart/form-data" className="space-y-6">
             {/* File picker */}
             <div>
@@ -158,7 +164,23 @@ function PaperUploadPage() {
               {fileError && <p className="text-xs mt-1 text-red-400">{fileError}</p>}
             </div>
 
-            {/* No metadata inputs (option A UI) */}
+            {/* Optional metadata inputs */}
+            <Input name="title" placeholder="Title (optional)" className="text-white placeholder:text-white/40 bg-white/[0.05] border-white/[0.1]" />
+            <Input name="authors" placeholder="Authors (comma separated)" className="text-white placeholder:text-white/40 bg-white/[0.05] border-white/[0.1]" />
+            <Textarea
+              name="abstract"
+              placeholder="Abstract (optional)"
+              rows={3}
+              className="text-white placeholder:text-white/40 bg-white/[0.05] border-white/[0.1] resize-none"
+            />
+            <Input
+              name="year"
+              placeholder="Year (e.g., 2025)"
+              value={yearValue}
+              onChange={handleYearChange}
+              className="text-white placeholder:text-white/40 bg-white/[0.05] border-white/[0.1]"
+            />
+            <Input name="topics" placeholder="Topics (comma separated)" className="text-white placeholder:text-white/40 bg-white/[0.05] border-white/[0.1]" />
 
             {/* Submit */}
             <Button
@@ -166,41 +188,34 @@ function PaperUploadPage() {
               disabled={!selectedFile || !!fileError || isUploading}
               className="w-full bg-gradient-to-r from-indigo-500 to-rose-500 text-white shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50"
             >
-              {isUploading && <Loader2 className="animate-spin h-4 w-4 mr-2" />} Upload Paper
+              {isUploading && <Loader2 className="animate-spin h-4 w-4 mr-2" />}Upload Paper
             </Button>
           </Form>
 
-          {/* Feedback */}
+          {/* Result feedback */}
           {actionData && "success" in actionData && actionData.success && (
             <div className="mt-6 p-4 rounded-lg bg-green-500/10 border border-green-500/20 text-white space-y-2">
               <p className="font-semibold text-green-400">{actionData.message}</p>
               {actionData.paper?.title && <p>Paper: {actionData.paper.title}</p>}
-              {actionData.analysis_preview && <p className="text-white/80 whitespace-pre-wrap">{actionData.analysis_preview}</p>}
+              {actionData.analysis_preview && (
+                <p className="text-white/80 whitespace-pre-wrap">{actionData.analysis_preview}</p>
+              )}
             </div>
           )}
 
           {actionData && "success" in actionData && !actionData.success && (
             <div className="mt-6 p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400">
               <p>{
-                "error" in actionData && (actionData as any).error
+                'error' in actionData && (actionData as any).error
                   ? (actionData as any).error
-                  : "message" in actionData
-                  ? (actionData as any).message
-                  : "Upload failed."
+                  : 'message' in actionData
+                    ? (actionData as any).message
+                    : 'Upload failed.'
               }</p>
             </div>
           )}
         </CardContent>
       </Card>
     </div>
-  );
-}
-
-// Wrap with AuthGuard
-export default function PaperUploadRoute() {
-  return (
-    <AuthGuard>
-      <PaperUploadPage />
-    </AuthGuard>
   );
 } 

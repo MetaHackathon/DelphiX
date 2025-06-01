@@ -287,7 +287,7 @@ function DashboardContent() {
         </motion.div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Recent Papers */}
+          {/* Recent Uploads */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -297,35 +297,35 @@ function DashboardContent() {
               <CardHeader>
                 <CardTitle className="text-white flex items-center gap-2">
                   <FileText className="h-5 w-5" />
-                  Recent Papers
+                  Recent Uploads
                 </CardTitle>
                 <CardDescription className="text-white/60">
-                  Your latest added research papers
+                  Your most recent PDF uploads
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 {recentPapers.length > 0 ? (
                   <div className="space-y-3">
                     {recentPapers.slice(0, 3).map((paper) => (
-                      <div key={paper.id} className="p-3 bg-white/[0.02] rounded-lg border border-white/[0.05]">
-                        <h4 className="font-medium text-white text-sm line-clamp-2 mb-1">
-                          {paper.title}
-                        </h4>
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs text-white/60">
-                            {Array.isArray(paper.authors) && paper.authors.length > 0 
-                              ? paper.authors.slice(0, 2).join(", ")
-                              : "Unknown authors"
-                            }
-                          </p>
-                          <Badge 
-                            variant="outline" 
-                            className="text-xs border-white/[0.1] text-white/60"
-                          >
-                            {paper.processing_status}
-                          </Badge>
+                      <Link key={paper.id} to={`/papers/${paper.id}`} state={{ paper }} prefetch="intent">
+                        <div className="p-3 bg-white/[0.02] rounded-lg border border-white/[0.05] hover:bg-white/[0.04] transition-colors">
+                          <h4 className="font-medium text-white text-sm line-clamp-2 mb-1">
+                            {paper.title}
+                          </h4>
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs text-white/60">
+                              {Array.isArray(paper.authors) && paper.authors.length > 0 
+                                ? paper.authors.slice(0, 2).join(", ")
+                                : "Unknown authors"}
+                            </p>
+                            {paper.processing_status && (
+                              <Badge variant="outline" className="text-xs border-white/[0.1] text-white/60">
+                                {paper.processing_status}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
-                      </div>
+                      </Link>
                     ))}
                     <Link to="/library">
                       <Button variant="ghost" className="w-full text-white/60 hover:text-white">
