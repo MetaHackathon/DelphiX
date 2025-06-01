@@ -1273,7 +1273,7 @@ function KnowledgeBaseViewerContent() {
 
           {/* Main Content */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4 bg-white/[0.02] border-white/[0.1]">
+            <TabsList className="grid w-full grid-cols-3 bg-white/[0.02] border-white/[0.1]">
               <TabsTrigger value="papers" className="data-[state=active]:bg-white/[0.1] text-white">
                 <BookOpen className="h-4 w-4 mr-2" />
                 Papers
@@ -1281,10 +1281,6 @@ function KnowledgeBaseViewerContent() {
               <TabsTrigger value="connections" className="data-[state=active]:bg-white/[0.1] text-white">
                 <Network className="h-4 w-4 mr-2" />
                 Connections
-              </TabsTrigger>
-              <TabsTrigger value="insights" className="data-[state=active]:bg-white/[0.1] text-white">
-                <Lightbulb className="h-4 w-4 mr-2" />
-                Insights
               </TabsTrigger>
               <TabsTrigger value="analytics" className="data-[state=active]:bg-white/[0.1] text-white">
                 <BarChart3 className="h-4 w-4 mr-2" />
@@ -1504,11 +1500,6 @@ function KnowledgeBaseViewerContent() {
             {/* Connections Tab */}
             <TabsContent value="connections" className="mt-6">
               <ResearchExplorer knowledgeBase={knowledgeBase} insightsData={currentInsightsData} activeTab="connections" />
-            </TabsContent>
-
-            {/* Insights Tab */}
-            <TabsContent value="insights" className="mt-6">
-              <ResearchExplorer knowledgeBase={knowledgeBase} insightsData={currentInsightsData} activeTab="insights" />
             </TabsContent>
 
             {/* Analytics Tab */}
