@@ -45,7 +45,6 @@ import { Badge } from "~/components/ui/badge";
 import { Input } from "~/components/ui/input";
 import { cn } from "~/lib/utils";
 import { apiClient } from "~/lib/api";
-
 export const meta: MetaFunction = () => {
   return [
     { title: "Knowledgebase Builder - DelphiX" },
@@ -65,6 +64,17 @@ interface Paper {
   institution?: string;
   qualityScore?: number;
   relevanceScore?: number;
+  _originalData?: {
+    arxiv_id: string;
+    title: string;
+    abstract: string;
+    authors: string[];
+    year: number;
+    citations: number;
+    pdf_url: string;
+    topics: string[];
+    institution: string;
+  };
 }
 
 // Mock data for demonstration with quality scores
@@ -113,6 +123,7 @@ const MOCK_PAPERS: Paper[] = [
 function SearchPageContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isCreatingKB, setIsCreatingKB] = useState(false);
   const [results, setResults] = useState<Paper[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [selectedPapers, setSelectedPapers] = useState<Set<string>>(new Set());
@@ -122,6 +133,11 @@ function SearchPageContent() {
   const [showKnowledgebasePanel, setShowKnowledgebasePanel] = useState(true);
   const [qualityFilter, setQualityFilter] = useState(0);
   const [showOnlyHighQuality, setShowOnlyHighQuality] = useState(false);
+  const [lastSearchInfo, setLastSearchInfo] = useState<{
+    strategiesUsed?: string[];
+    processingTime?: string;
+    totalCandidates?: number;
+  } | null>(null);
 
   // Auto-search if there's a query parameter
   useEffect(() => {
@@ -169,28 +185,61 @@ function SearchPageContent() {
     setHasSearched(true);
     
     try {
-      // Use real API to search papers
-      const searchResults = await apiClient.searchPapers(queryToUse, 20);
+      // Use intelligent search for better results
+      const searchResponse = await apiClient.intelligentSearch(queryToUse, {
+        max_papers: 100,
+        include_foundational: true,
+        include_recent: true,
+        time_range_years: 10,
+      });
       
       // Transform API results to match our Paper interface
-      const transformedResults = searchResults.map((paper: any) => ({
-        id: paper.id,
+      const transformedResults = (searchResponse as any).papers.map((paper: any) => ({
+        id: `temp-${paper.arxiv_id || paper.id || Math.random().toString(36).substr(2, 9)}`, // Use temp UUID
         title: paper.title,
-        abstract: paper.abstract || "",
+        abstract: paper.summary || paper.abstract || "",
         authors: paper.authors || [],
-        year: paper.year,
+        year: paper.published ? new Date(paper.published).getFullYear() : (paper.year || 2023),
         citations: paper.citations || 0,
-        url: paper.url,
-        topics: paper.topics || [],
-        institution: paper.institution,
-        qualityScore: Math.floor(Math.random() * 30) + 70, // Mock quality score
-        relevanceScore: Math.floor(Math.random() * 20) + 80 // Mock relevance score
+        url: paper.url || paper.pdf_url || `https://arxiv.org/abs/${paper.arxiv_id || paper.id}`,
+        topics: paper.categories || paper.topics || [],
+        institution: paper.institution || paper.primary_category,
+        qualityScore: paper.quality_score || Math.floor(Math.random() * 30) + 70,
+        relevanceScore: paper.relevance_score || Math.floor(Math.random() * 20) + 80,
+        // Store original data for later saving
+        _originalData: {
+          arxiv_id: paper.arxiv_id || paper.id,
+          title: paper.title,
+          abstract: paper.summary || paper.abstract || "",
+          authors: paper.authors || [],
+          year: paper.published ? new Date(paper.published).getFullYear() : (paper.year || 2023),
+          citations: paper.citations || 0,
+          pdf_url: paper.url || paper.pdf_url || `https://arxiv.org/abs/${paper.arxiv_id || paper.id}`,
+          topics: paper.categories || paper.topics || [],
+          institution: paper.institution || paper.primary_category
+        }
       }));
       
       setResults(transformedResults);
+      
+      // Store search info for display
+      const response = searchResponse as any;
+      setLastSearchInfo({
+        strategiesUsed: response.query_strategies?.map((s: any) => s.name || s.query) || [],
+        processingTime: response.processing_time ? `${response.processing_time.toFixed(2)}s` : undefined,
+        totalCandidates: response.total_candidates || transformedResults.length
+      });
+      
+      // Log search session info for debugging
+      console.log(`Intelligent search completed: ${transformedResults.length} papers found in ${response.processing_time || 'unknown'} seconds`);
+      if (response.query_strategies) {
+        console.log(`Search strategies used: ${response.query_strategies.length} strategies`);
+      }
+      
     } catch (error) {
-      console.error('Search error:', error);
-      // Fallback to mock data if API fails
+      console.error('Intelligent search error:', error);
+      
+      // Fallback to mock data with proper UUIDs
       const filteredPapers = MOCK_PAPERS.filter(paper => 
         paper.title.toLowerCase().includes(queryToUse.toLowerCase()) ||
         paper.abstract.toLowerCase().includes(queryToUse.toLowerCase()) ||
@@ -210,30 +259,89 @@ function SearchPageContent() {
   };
 
   const createKnowledgebase = async () => {
-    if (selectedPapers.size === 0 || !knowledgebaseName.trim()) return;
-    
+    if (selectedPapers.size === 0) {
+      alert("Please select at least one paper to create a knowledge base.");
+      return;
+    }
+
+    if (!knowledgebaseName.trim()) {
+      alert("Please enter a name for your knowledge base.");
+      return;
+    }
+
     try {
-      // Call API to create knowledgebase
+      setIsCreatingKB(true);
+      
+      // Get the selected papers 
+      const selectedPaperData = results.filter(p => selectedPapers.has(p.id));
+      console.log('Selected papers for KB:', selectedPaperData);
+      
+      // Download and upload each paper to get real UUIDs
+      const realPaperIds = [];
+      for (const paper of selectedPaperData) {
+        try {
+          console.log('Downloading PDF for:', paper.title, 'from:', paper.url);
+          
+          // Download the PDF using backend proxy (bypasses CORS)
+          const pdfResponse = await fetch(`http://localhost:8000/api/download-pdf?url=${encodeURIComponent(paper.url)}`);
+          if (!pdfResponse.ok) {
+            console.warn('Failed to download PDF for:', paper.title);
+            continue;
+          }
+          
+          const pdfBlob = await pdfResponse.blob();
+          
+          // Create FormData with the PDF file
+          const formData = new FormData();
+          formData.append('file', pdfBlob, `${paper.title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
+          formData.append('title', paper.title);
+          formData.append('authors', paper.authors.join(','));
+          formData.append('abstract', paper.abstract);
+          formData.append('year', paper.year.toString());
+          formData.append('topics', paper.topics.join(','));
+          
+          const savedPaper = await apiClient.uploadPaper(formData);
+          realPaperIds.push(savedPaper.paper.id);
+          console.log('Uploaded paper, got UUID:', savedPaper.paper.id);
+        } catch (error) {
+          console.warn('Failed to download/upload paper:', paper.title, error);
+        }
+      }
+      
+      if (realPaperIds.length === 0) {
+        alert("Failed to upload papers. Please try again.");
+        return;
+      }
+      
+      // Create KB with real UUIDs
       const knowledgebaseData = {
-        name: knowledgebaseName,
-        description: knowledgebaseDescription,
-        papers: Array.from(selectedPapers),
-        tags: topTopics, // Use the derived top topics as tags
+        name: knowledgebaseName.trim(),
+        description: knowledgebaseDescription.trim() || `Knowledge base with ${realPaperIds.length} papers on: ${searchQuery}`,
+        papers: realPaperIds,
+        tags: [searchQuery, ...getKnowledgebaseComposition().topTopics.slice(0, 5)],
         is_public: false
       };
+
+      console.log('Creating KB with real UUIDs:', knowledgebaseData);
       
-      await apiClient.createKnowledgebase(knowledgebaseData);
+      const response = await apiClient.createKnowledgebase(knowledgebaseData);
       
-      // Show success message
-      alert(`Knowledgebase "${knowledgebaseName}" created with ${selectedPapers.size} papers!`);
+      console.log('KB created successfully:', response);
       
-      // Reset after creation
-      setSelectedPapers(new Set());
+      // Reset form
       setKnowledgebaseName("");
       setKnowledgebaseDescription("");
+      setSelectedPapers(new Set());
+      
+      alert(`Successfully created knowledge base "${knowledgebaseData.name}" with ${realPaperIds.length} papers!`);
+      
+      window.location.href = '/knowledge-canvas';
+      
     } catch (error) {
-      console.error('Error creating knowledgebase:', error);
-      alert('Failed to create knowledgebase. Please try again.');
+      console.error('Error creating knowledge base:', error);
+      alert(`Failed to create knowledge base: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsCreatingKB(false);
     }
   };
 
@@ -284,7 +392,7 @@ function SearchPageContent() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-white">Research Knowledgebase Builder</h1>
-              <p className="text-white/60 text-sm">Curate high-quality research knowledgebases with AI-powered quality assessment</p>
+              <p className="text-white/60 text-sm">AI-powered intelligent search with multi-strategy discovery and quality assessment</p>
             </div>
           </div>
 
@@ -331,7 +439,7 @@ function SearchPageContent() {
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/40 h-4 w-4" />
                   <input
                     type="text"
-                    placeholder="Search research papers for your knowledgebase..."
+                    placeholder="AI-powered intelligent search across multiple strategies..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyDown={handleKeyDown}
@@ -343,7 +451,17 @@ function SearchPageContent() {
                   disabled={isLoading || !searchQuery.trim()}
                   className="h-10 px-6 bg-gradient-to-r from-indigo-500 to-rose-500 hover:from-indigo-600 hover:to-rose-600"
                 >
-                  {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Search"}
+                  {isLoading ? (
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>AI Searching...</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-4 w-4" />
+                      <span>Intelligent Search</span>
+                    </div>
+                  )}
                 </Button>
               </div>
               
@@ -388,6 +506,30 @@ function SearchPageContent() {
                   </div>
                 )}
               </div>
+              
+              {/* Search Strategy Information */}
+              {lastSearchInfo && (
+                <div className="mt-3 pt-3 border-t border-white/[0.05]">
+                  <div className="flex items-center gap-4 text-xs text-white/60">
+                    <div className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      <span>{lastSearchInfo.processingTime || 'N/A'}</span>
+                    </div>
+                    {lastSearchInfo.totalCandidates && (
+                      <div className="flex items-center gap-1">
+                        <Database className="h-3 w-3" />
+                        <span>{lastSearchInfo.totalCandidates} candidates analyzed</span>
+                      </div>
+                    )}
+                    {lastSearchInfo.strategiesUsed && (
+                      <div className="flex items-center gap-1">
+                        <Target className="h-3 w-3" />
+                        <span>{lastSearchInfo.strategiesUsed.length} search strategies</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </motion.div>
@@ -406,6 +548,11 @@ function SearchPageContent() {
                 <CardTitle className="flex items-center gap-2 text-white text-sm">
                   <Brain className="h-4 w-4 text-indigo-400" />
                   Knowledgebase Builder
+                  {isCreatingKB && (
+                    <div className="ml-auto">
+                      <Loader2 className="h-3 w-3 text-indigo-400 animate-spin" />
+                    </div>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 pt-0">
@@ -431,11 +578,20 @@ function SearchPageContent() {
 
                 <Button
                   onClick={createKnowledgebase}
-                  disabled={selectedPapers.size === 0 || !knowledgebaseName.trim()}
+                  disabled={selectedPapers.size === 0 || !knowledgebaseName.trim() || isCreatingKB}
                   className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 h-8 text-sm"
                 >
-                  <Brain className="h-3 w-3 mr-1" />
-                  Build Knowledgebase ({selectedPapers.size})
+                  {isCreatingKB ? (
+                    <div className="flex items-center gap-1">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      <span>Creating...</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1">
+                      <Brain className="h-3 w-3" />
+                      <span>Build Knowledgebase ({selectedPapers.size})</span>
+                    </div>
+                  )}
                 </Button>
               </CardContent>
             </Card>
@@ -498,7 +654,18 @@ function SearchPageContent() {
           </motion.div>
 
           {/* Compact Search Results */}
-          <div className="lg:col-span-3">
+          <div className="lg:col-span-3 relative">
+            {/* KB Creation Overlay */}
+            {isCreatingKB && (
+              <div className="absolute inset-0 bg-black/50 backdrop-blur-sm z-10 rounded-lg flex items-center justify-center">
+                <div className="bg-white/[0.1] border border-white/[0.2] rounded-lg p-6 text-center">
+                  <Loader2 className="h-8 w-8 text-indigo-400 animate-spin mx-auto mb-3" />
+                  <p className="text-white font-medium mb-1">Creating Knowledge Base</p>
+                  <p className="text-white/60 text-sm">Downloading and processing {selectedPapers.size} papers...</p>
+                </div>
+              </div>
+            )}
+            
             {hasSearched && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}

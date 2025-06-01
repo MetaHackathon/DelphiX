@@ -5,24 +5,44 @@ const API_BASE_URL = typeof window !== 'undefined'
 
 class ApiClient {
   private baseUrl: string;
+  private userId: string | null = null;
 
   constructor(baseUrl: string = API_BASE_URL) {
     this.baseUrl = baseUrl;
   }
 
+  // Set user ID for API requests (simplified approach)
+  setUserId(userId: string | null) {
+    this.userId = userId;
+  }
+
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    };
+
+    // Add user ID header (simplified auth)
+    if (this.userId) {
+      (headers as any)['X-User-ID'] = this.userId;
+      console.log(`Making API request to ${endpoint} with user ID: ${this.userId}`);
+    } else {
+      console.log(`Making API request to ${endpoint} without user ID`);
+    }
+    
     const response = await fetch(url, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
+      headers,
       ...options,
     });
 
+    console.log(`API response status: ${response.status} for ${endpoint}`);
+
     if (!response.ok) {
-      throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      console.error(`API request failed: ${response.status} ${response.statusText}`, errorText);
+      throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
     return response.json();
@@ -49,6 +69,54 @@ class ApiClient {
 
   async getRecommendedPapers(limit: number = 15) {
     return this.request(`/api/discover/recommended?limit=${limit}`);
+  }
+
+  // Intelligent search functionality
+  async intelligentSearch(query: string, options?: {
+    knowledge_base_id?: string;
+    max_papers?: number;
+    include_foundational?: boolean;
+    include_recent?: boolean;
+    time_range_years?: number;
+    specific_venues?: string[];
+    exclude_topics?: string[];
+    methodology_focus?: string;
+  }) {
+    return this.request('/api/intelligent/search', {
+      method: 'POST',
+      body: JSON.stringify({
+        research_question: query,  // Backend expects 'research_question', not 'query'
+        max_papers: options?.max_papers || 25,
+        include_foundational: options?.include_foundational ?? true,
+        include_recent: options?.include_recent ?? true,
+        time_range_years: options?.time_range_years,
+        specific_venues: options?.specific_venues || [],
+        exclude_topics: options?.exclude_topics || [],
+        methodology_focus: options?.methodology_focus,
+        knowledge_base_id: options?.knowledge_base_id,
+      }),
+    });
+  }
+
+  async getIntelligentSearchHistory(limit: number = 10) {
+    const params = new URLSearchParams({
+      limit: limit.toString(),
+    });
+    return this.request(`/api/intelligent/search-history?${params}`);
+  }
+
+  async generateLiteratureReview(data: {
+    query: string;
+    paper_ids: string[];
+    review_type?: 'comprehensive' | 'focused' | 'comparative';
+    include_methodology?: boolean;
+    include_gaps?: boolean;
+    include_future_work?: boolean;
+  }) {
+    return this.request('/api/intelligent/literature-review', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 
   // Library management
@@ -288,4 +356,30 @@ class ApiClient {
   }
 }
 
-export const apiClient = new ApiClient(); 
+// Export singleton instance
+export const apiClient = new ApiClient();
+
+// Simple function to get current user ID and set it
+export async function setCurrentUser() {
+  try {
+    if (typeof window !== 'undefined') {
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabase = createClient(
+        import.meta.env.VITE_SUPABASE_URL!,
+        import.meta.env.VITE_SUPABASE_ANON_KEY!
+      );
+      
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user?.id) {
+        apiClient.setUserId(session.user.id);
+        console.log('Set user ID:', session.user.id);
+      }
+    }
+  } catch (error) {
+    console.error('Failed to set user ID:', error);
+  }
+}
+
+// Auto-initialize
+setCurrentUser(); 

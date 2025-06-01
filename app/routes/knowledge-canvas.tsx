@@ -9,8 +9,7 @@ import { Input } from "~/components/ui/input";
 import { Badge } from "~/components/ui/badge";
 import { cn } from '~/lib/utils';
 import { AuthGuard, useAuth } from "~/components/auth-guard";
-import supabase from "~/lib/supabase.client";
-
+import { apiClient } from "~/lib/api";
 export const meta: MetaFunction = () => {
   return [
     { title: "Knowledge Canvas - DelphiX" },
@@ -18,55 +17,34 @@ export const meta: MetaFunction = () => {
   ];
 };
 
-// Mock knowledge bases for demo
-const mockKnowledgeBases = [
-  {
-    id: "1",
-    name: "Transformer Architecture Research",
-    description: "Comprehensive study of transformer models and their applications",
-    paper_count: 24,
-    created_at: "2024-01-15T10:30:00Z",
-    updated_at: "2024-01-20T14:45:00Z",
-    tags: ["Transformers", "NLP", "Attention Mechanism"],
-    status: "active"
-  },
-  {
-    id: "2", 
-    name: "Computer Vision Fundamentals",
-    description: "Core papers and concepts in computer vision and image processing",
-    paper_count: 18,
-    created_at: "2024-01-10T09:15:00Z",
-    updated_at: "2024-01-18T16:20:00Z",
-    tags: ["Computer Vision", "CNNs", "Image Processing"],
-    status: "active"
-  },
-  {
-    id: "3",
-    name: "Reinforcement Learning Survey",
-    description: "Survey of modern reinforcement learning techniques and applications",
-    paper_count: 31,
-    created_at: "2024-01-05T11:00:00Z",
-    updated_at: "2024-01-22T13:30:00Z",
-    tags: ["RL", "Policy Learning", "Q-Learning"],
-    status: "draft"
-  }
-];
+// Remove mock data - we'll load real data from API
+interface KnowledgeBase {
+  id: string;
+  name: string;
+  description: string;
+  paper_count: number;
+  created_at: string;
+  updated_at: string;
+  tags: string[];
+  status: string;
+  user_id: string;
+  is_public: boolean;
+}
 
 export default function KnowledgeCanvas() {
   const { user } = useAuth();
-  const [knowledgeBases, setKnowledgeBases] = useState<typeof mockKnowledgeBases>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
-  const [filteredKnowledgeBases, setFilteredKnowledgeBases] = useState<typeof mockKnowledgeBases>([]);
+  const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([]);
+  const [filteredKnowledgeBases, setFilteredKnowledgeBases] = useState<KnowledgeBase[]>([]);
 
+  // Filter knowledge bases based on search query
   useEffect(() => {
-    if (user) {
-      loadKnowledgeBases();
+    if (!searchQuery.trim()) {
+      setFilteredKnowledgeBases(knowledgeBases);
+      return;
     }
-  }, [user]);
 
-  useEffect(() => {
-    // Filter knowledge bases based on search query
     const filtered = knowledgeBases.filter(kb => 
       kb.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       kb.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -81,45 +59,62 @@ export default function KnowledgeCanvas() {
     try {
       setLoading(true);
       
-      // Try to get knowledge bases from database
-      try {
-        const { data: kbData } = await supabase
-          .from('knowledge_bases')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('updated_at', { ascending: false });
-        
-        if (kbData && kbData.length > 0) {
-          setKnowledgeBases(kbData);
-        } else {
-          // Use mock data if no knowledge bases exist
-          setKnowledgeBases(mockKnowledgeBases);
-        }
-      } catch (error) {
-        console.log('Knowledge bases table not available, using mock data:', error);
-        setKnowledgeBases(mockKnowledgeBases);
+      console.log('Loading knowledge bases from API...');
+      
+      // Load knowledge bases from the API (auth token is automatically set)
+      const response = await apiClient.getKnowledgebases();
+      console.log('API response:', response);
+      
+      // The response should be an array of knowledge bases
+      if (Array.isArray(response)) {
+        setKnowledgeBases(response);
+        console.log(`Loaded ${response.length} knowledge bases`);
+      } else {
+        console.log('No knowledge bases found or invalid response');
+        setKnowledgeBases([]);
       }
     } catch (error) {
       console.error('Error loading knowledge bases:', error);
-      setKnowledgeBases(mockKnowledgeBases);
+      setKnowledgeBases([]);
+      
+      // Show a user-friendly error message if the API is not available
+      if (error instanceof Error && error.message.includes('Failed to fetch')) {
+        console.warn('DataEngineX backend appears to be unavailable. Please ensure it is running on http://localhost:8000');
+      }
     } finally {
       setLoading(false);
     }
   };
 
+  // Load knowledge bases when component mounts or user changes
+  useEffect(() => {
+    loadKnowledgeBases();
+  }, [user]);
+
   const handleCreateNew = () => {
-    // TODO: Implement create new knowledge base
-    console.log("Creating new knowledge base");
+    // Navigate to search page to create a new knowledge base
+    window.location.href = '/search';
   };
 
   const handleEdit = (id: string) => {
-    // TODO: Implement edit knowledge base
-    console.log("Editing knowledge base:", id);
+    // Navigate to knowledge base detail page
+    window.location.href = `/knowledge-base/${id}`;
   };
 
-  const handleDelete = (id: string) => {
-    // TODO: Implement delete knowledge base
-    console.log("Deleting knowledge base:", id);
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Are you sure you want to delete "${name}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      await apiClient.deleteKnowledgebase(id);
+      // Update state directly instead of reloading
+      setKnowledgeBases(prev => prev.filter(kb => kb.id !== id));
+      alert('Knowledge base deleted successfully');
+    } catch (error) {
+      console.error('Error deleting knowledge base:', error);
+      alert('Failed to delete knowledge base');
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -291,7 +286,7 @@ export default function KnowledgeCanvas() {
                             variant="outline"
                             size="sm"
                             className="bg-white/[0.02] border-white/[0.1] text-white hover:bg-white/[0.05]"
-                            onClick={() => handleDelete(kb.id)}
+                            onClick={() => handleDelete(kb.id, kb.name)}
                           >
                             <Trash2 className="h-3 w-3" />
                           </Button>
