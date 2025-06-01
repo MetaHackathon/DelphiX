@@ -21,4 +21,22 @@ export default defineConfig({
     }),
     tsconfigPaths(),
   ],
+  optimizeDeps: {
+    include: ['pdfjs-dist', 'react-pdf-highlighter-extended'],
+    esbuildOptions: {
+      target: 'esnext'
+    }
+  },
+  ssr: {
+    noExternal: ['@radix-ui/react-scroll-area'],
+    external: ['react-pdf-highlighter-extended', 'pdfjs-dist'],
+  },
+  resolve: {
+    alias: {
+      'react-pdf-highlighter-extended': 'react-pdf-highlighter-extended/dist/esm/index.js'
+    }
+  },
+  build: {
+    target: 'esnext'
+  }
 });

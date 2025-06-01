@@ -208,6 +208,84 @@ class ApiClient {
       body: JSON.stringify(data),
     });
   }
+
+  // ============================================================================
+  // DOCUMENT VIEWING AND ANNOTATIONS
+  // ============================================================================
+
+  // Get document metadata
+  async getDocument(id: string) {
+    return this.request(`/api/documents/${id}`);
+  }
+
+  // Get document highlights and annotations
+  async getDocumentAnnotations(documentId: string) {
+    return this.request(`/api/documents/${documentId}/annotations`);
+  }
+
+  // Save highlight
+  async saveHighlight(documentId: string, highlight: {
+    content: { text?: string; image?: string };
+    position: any;
+    color?: string;
+    type?: string;
+    comment?: string;
+  }) {
+    return this.request(`/api/documents/${documentId}/highlights`, {
+      method: 'POST',
+      body: JSON.stringify(highlight),
+    });
+  }
+
+  // Update highlight
+  async updateHighlight(documentId: string, highlightId: string, updates: {
+    comment?: string;
+    color?: string;
+  }) {
+    return this.request(`/api/documents/${documentId}/highlights/${highlightId}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  }
+
+  // Delete highlight
+  async deleteHighlight(documentId: string, highlightId: string) {
+    return this.request(`/api/documents/${documentId}/highlights/${highlightId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Save annotation
+  async saveAnnotation(documentId: string, annotation: {
+    type: 'note' | 'bookmark' | 'comment';
+    content: string;
+    page: number;
+    position?: any;
+  }) {
+    return this.request(`/api/documents/${documentId}/annotations`, {
+      method: 'POST',
+      body: JSON.stringify(annotation),
+    });
+  }
+
+  // Document chat
+  async sendDocumentChatMessage(documentId: string, message: string, context?: {
+    highlights?: string[];
+    page?: number;
+  }) {
+    return this.request(`/api/documents/${documentId}/chat`, {
+      method: 'POST',
+      body: JSON.stringify({
+        message,
+        context,
+      }),
+    });
+  }
+
+  // Get document chat history
+  async getDocumentChatHistory(documentId: string) {
+    return this.request(`/api/documents/${documentId}/chat`);
+  }
 }
 
 export const apiClient = new ApiClient(); 

@@ -1,0 +1,114 @@
+/* React PDF Highlighter Extended Styles */
+.PdfHighlighter {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  background: #121212 !important;
+}
+
+/* Ensure text selection is possible */
+.react-pdf__Page__textContent {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
+/* Make text content transparent but selectable */
+.react-pdf__Page__textContent span {
+  color: transparent !important;
+}
+
+/* Page styling */
+.react-pdf__Page {
+  margin-bottom: 10px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+}
+
+/* Canvas styling to match dark theme */
+.react-pdf__Page__canvas {
+  background: #121212 !important;
+}
+
+/* Highlight styles */
+.Highlight {
+  position: absolute;
+  transition: background 0.3s;
+}
+
+.Highlight--text {
+  background: rgba(67, 194, 255, 0.3);
+  cursor: pointer;
+}
+
+.Highlight--text:hover {
+  background: rgba(67, 194, 255, 0.4);
+}
+
+.Highlight--area {
+  background: rgba(255, 106, 106, 0.3);
+  cursor: pointer;
+}
+
+.Highlight--area:hover {
+  background: rgba(255, 106, 106, 0.5);
+}
+
+/* Tip styles - Cursor-like appearance */
+.Tip {
+  background: rgba(30, 30, 30, 0.95);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(45, 45, 45, 1);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  font-size: 12px;
+  font-weight: 500;
+  z-index: 1000;
+  animation: tipFadeIn 0.2s ease-out;
+}
+
+@keyframes tipFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Scrolled to highlight effect */
+.Highlight--scrolledTo {
+  background: rgba(147, 51, 234, 0.5) !important;
+}
+
+/* Custom scrollbar styles */
+.scrollbar-thin {
+  scrollbar-width: thin;
+}
+
+.scrollbar-thumb-\[#1a1f2e\] {
+  scrollbar-color: #1a1f2e transparent;
+}
+
+.scrollbar-track-transparent {
+  scrollbar-color: #1a1f2e transparent;
+}
+
+/* Webkit scrollbar styles */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollbar-thumb-\[#1a1f2e\]::-webkit-scrollbar-thumb {
+  background-color: #1a1f2e;
+  border-radius: 3px;
+}
+
+.scrollbar-thumb-\[#1a1f2e\]::-webkit-scrollbar-thumb:hover {
+  background-color: #2a2f3e;
+}
+
+.scrollbar-track-transparent::-webkit-scrollbar-track {
+  background-color: transparent;
+} 

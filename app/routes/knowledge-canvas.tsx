@@ -270,13 +270,15 @@ export default function KnowledgeCanvas() {
 
                         {/* Actions */}
                         <div className="flex gap-2 pt-2">
-                          <Button
-                            size="sm"
-                            className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white"
-                          >
-                            <Eye className="h-3 w-3 mr-1" />
-                            View
-                          </Button>
+                          <Link to={`/knowledge-base/${kb.id}`} className="flex-1">
+                            <Button
+                              size="sm"
+                              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white"
+                            >
+                              <Eye className="h-3 w-3 mr-1" />
+                              View
+                            </Button>
+                          </Link>
                           <Button
                             variant="outline"
                             size="sm"

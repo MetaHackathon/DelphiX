@@ -137,6 +137,13 @@ function DashboardContent() {
       color: "from-green-500 to-emerald-500",
     },
     {
+      title: "Document Viewer",
+      description: "View PDF with highlights & AI chat",
+      icon: FileText,
+      href: "/document/sample",
+      color: "from-cyan-500 to-blue-500",
+    },
+    {
       title: "Knowledge Canvas",
       description: "Manage your knowledge bases",
       icon: Network,
