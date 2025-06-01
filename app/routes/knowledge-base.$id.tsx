@@ -1,7 +1,7 @@
 import type { MetaFunction, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData, Link, useParams, useNavigate } from "@remix-run/react";
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import * as React from "react";
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactFlow, { 
@@ -92,6 +92,7 @@ interface PaperData {
   topics: string[];
   quality_score?: number;
   relevance_score?: number;
+  full_text?: string; // <-- add this line
 }
 
 interface ConnectionsData {
@@ -107,9 +108,17 @@ interface ConnectionsData {
     connections: number;
   }>;
   edges: Array<{
+    id: string;
     source: string;
     target: string;
     strength: number;
+    explanation: string;
+    style: {
+      stroke: string;
+      strokeWidth: number;
+      strokeOpacity: number;
+    };
+    animated: boolean;
   }>;
   stats: {
     totalNodes: number;
@@ -186,17 +195,18 @@ interface Paper {
   year: number;
   citations: number;
   abstract: string;
+  full_text: string;
   venue: string;
   topics: string[];
   qualityScore: number;
   connections: string[];
+  connectionExplanations: Record<string, string>;  // Add map of connected paper ID to explanation
   keyInsights: string[];
   _originalData?: {
     arxiv_id: string;
     title: string;
     abstract: string;
     authors: string[];
-    year: number;
     citations: number;
     pdf_url: string;
     topics: string[];
@@ -236,10 +246,11 @@ export default function KnowledgeBaseViewer() {
 }
 
 // Move subcomponents OUTSIDE the main component
-function ResearchExplorer({ knowledgeBase, insightsData, activeTab }: { 
-  knowledgeBase: KnowledgeBase, 
-  insightsData: InsightsData,
-  activeTab: 'connections' | 'insights' | 'analytics'
+function ResearchExplorer({ knowledgeBase, insightsData, activeTab, connectionsData }: { 
+  knowledgeBase: KnowledgeBase;
+  insightsData: InsightsData;
+  activeTab: 'connections' | 'insights' | 'analytics';
+  connectionsData?: ConnectionsData;
 }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -284,7 +295,7 @@ function ResearchExplorer({ knowledgeBase, insightsData, activeTab }: {
       )}
 
       {activeTab === 'connections' && (
-        <ReactFlowMindMap knowledgeBase={knowledgeBase} />
+        <ReactFlowMindMap knowledgeBase={knowledgeBase} connectionsData={connectionsData} />
       )}
 
       {activeTab === 'insights' && (
@@ -502,7 +513,7 @@ function PaperNode({ data, selected }: { data: any; selected?: boolean }) {
   return (
     <div 
       className={cn(
-        "paper-node relative bg-gray-900/95 backdrop-blur border-2 rounded-xl p-2  transition-all duration-500 cursor-pointer shadow-2xl h-32 w-42",
+        "paper-node relative bg-gray-900/95 backdrop-blur border-2 rounded-xl p-2 transition-all duration-500 cursor-pointer shadow-2xl h-32 w-42",
         "hover:shadow-3xl hover:scale-105",
         selected && "ring-2 ring-blue-400 bg-blue-900/20",
         isHovered && "z-50 shadow-blue-500/20"
@@ -555,7 +566,7 @@ function PaperNode({ data, selected }: { data: any; selected?: boolean }) {
             >
               {/* Abstract */}
               <div>
-                <p className="text-gray-300 text-xs leading-relaxed line-clamp-4">
+                <p className="text-gray-300 text-xs leading-relaxed line-clamp-2">
                   {data.abstract}
                 </p>
               </div>
@@ -571,17 +582,23 @@ function PaperNode({ data, selected }: { data: any; selected?: boolean }) {
                   </span>
                 ))}
               </div>
-              
-              {/* Details */}
-              <div className="space-y-2 text-xs">
-                <p className="text-gray-300 line-clamp-3">{data.abstract}</p>
-                <div className="text-gray-400">Published in {data.venue}</div>
-              </div>
+
+              {/* Connection Explanations */}
+              {data.connectionExplanations && Object.keys(data.connectionExplanations).length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-gray-300">Connections:</p>
+                  {Object.entries(data.connectionExplanations).map(([connectedId, explanation]) => (
+                    <div key={connectedId} className="text-xs text-gray-400 bg-white/5 p-1 rounded">
+                      {String(explanation)}
+                    </div>
+                  ))}
+                </div>
+              )}
             </motion.div>
           )}
           
           {/* Footer */}
-          <div className="flex items-center justify-between mt-auto pt-2 ">
+          <div className="flex items-center justify-between mt-auto pt-2">
             <div className="flex items-center gap-3 text-xs text-gray-300">
               <div className="flex items-center gap-1">
                 <Star className="h-3 w-3" />
@@ -615,7 +632,10 @@ function PaperNode({ data, selected }: { data: any; selected?: boolean }) {
   );
 }
 
-function ReactFlowMindMap({ knowledgeBase }: { knowledgeBase: KnowledgeBase }) {
+function ReactFlowMindMap({ knowledgeBase, connectionsData }: { 
+  knowledgeBase: KnowledgeBase;
+  connectionsData?: ConnectionsData;
+}) {
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   
@@ -656,7 +676,8 @@ function ReactFlowMindMap({ knowledgeBase }: { knowledgeBase: KnowledgeBase }) {
           venue: paper.venue,
           abstract: paper.abstract,
           connections: paper.connections.length,
-          keyInsights: paper.keyInsights
+          keyInsights: paper.keyInsights,
+          connectionExplanations: paper.connectionExplanations || {}
         },
         draggable: true,
       };
@@ -667,28 +688,60 @@ function ReactFlowMindMap({ knowledgeBase }: { knowledgeBase: KnowledgeBase }) {
     const edges: Edge[] = [];
     knowledgeBase.papers.forEach(paper => {
       paper.connections.forEach(connectionId => {
-        // Only create edge if target paper exists and avoid duplicates
         const targetPaper = knowledgeBase.papers.find(p => p.id === connectionId);
-        if (targetPaper && paper.id < connectionId) { // Avoid duplicate edges
-          const isHighlighted = selectedNode === paper.id || selectedNode === connectionId || 
+        if (targetPaper && paper.id < connectionId) {
+          const isHighlighted = selectedNode === paper.id || selectedNode === connectionId ||
                                hoveredNode === paper.id || hoveredNode === connectionId;
-          
+          const existingEdge = connectionsData?.edges?.find(e =>
+            (e.source === paper.id && e.target === connectionId) ||
+            (e.source === connectionId && e.target === paper.id)
+          );
           edges.push({
             id: `${paper.id}-${connectionId}`,
             source: paper.id,
             target: connectionId,
-            style: { 
-              stroke: isHighlighted ? '#3b82f6' : '#6366f1', 
-              strokeWidth: isHighlighted ? 3 : 2,
-              strokeOpacity: isHighlighted ? 1 : 0.4 
+            data: {
+              explanation: paper.connectionExplanations[connectionId] || "Related work"
+            },
+            style: {
+              stroke: isHighlighted ? '#3b82f6' : (existingEdge?.style?.stroke || '#6366f1'),
+              strokeWidth: isHighlighted ? 3 : (existingEdge?.style?.strokeWidth || 2),
+              strokeOpacity: isHighlighted ? 1 : (existingEdge?.style?.strokeOpacity || 0.4)
             },
             animated: isHighlighted,
           });
         }
       });
     });
+    // inside fallback edge block in initialEdges
+    if (edges.length === 0 && knowledgeBase.papers.length > 1) {
+      // Create a fully-connected graph with default explanations
+      for (let i = 0; i < knowledgeBase.papers.length; i++) {
+        for (let j = i + 1; j < knowledgeBase.papers.length; j++) {
+          const src = knowledgeBase.papers[i];
+          const tgt = knowledgeBase.papers[j];
+          // update connection arrays (local, non-persistent)
+          if (!src.connections.includes(tgt.id)) {
+            src.connections.push(tgt.id);
+            src.connectionExplanations[tgt.id] = 'Inferred thematic relationship';
+          }
+          if (!tgt.connections.includes(src.id)) {
+            tgt.connections.push(src.id);
+            tgt.connectionExplanations[src.id] = 'Inferred thematic relationship';
+          }
+          edges.push({
+            id: `${src.id}-${tgt.id}`,
+            source: src.id,
+            target: tgt.id,
+            data: { explanation: 'Inferred thematic relationship' },
+            style: { stroke: '#6366f1', strokeWidth: 2, strokeOpacity: 0.6 },
+            animated: false
+          });
+        }
+      }
+    }
     return edges;
-  }, [knowledgeBase.papers, selectedNode, hoveredNode]);
+  }, [knowledgeBase.papers, selectedNode, hoveredNode, connectionsData]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -992,18 +1045,17 @@ function KnowledgeBaseViewerContent() {
   const [generatingAnalysis, setGeneratingAnalysis] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPaper, setSelectedPaper] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'network'>('grid');
-  const [filterTopic, setFilterTopic] = useState<string | null>(null);
+  const [filterTopic, setFilterTopic] = useState<string>("");
   const [activeTab, setActiveTab] = useState("papers");
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'network'>('grid');
 
-  // Generate analysis function - moved before useEffect that uses it
+  // Generate analysis function
   const generateAnalysis = useCallback(async () => {
     if (!id || generatingAnalysis) return;
     
     setGeneratingAnalysis(true);
     try {
       const result = await apiClient.generateKnowledgebaseAnalysis(id) as any;
-      // Set all the analysis data
       if (result?.connections) setConnectionsData(result.connections);
       if (result?.insights) setInsightsData(result.insights);
       if (result?.analytics) setAnalyticsData(result.analytics);
@@ -1036,11 +1088,13 @@ function KnowledgeBaseViewerContent() {
           year: paper.year || new Date().getFullYear(),
           citations: paper.citations || 0,
           abstract: paper.abstract || "",
+          full_text: paper.full_text || "",
           venue: "arXiv", // Default since we don't have venue in real data
           topics: paper.topics || [],
           qualityScore: paper.quality_score || 8.5 + Math.random() * 1.5,
-          connections: [], // Will be populated from connections data
-          keyInsights: [] // Will be generated or populated later
+          connections: [], // Initialize empty connections array
+          connectionExplanations: {}, // Initialize empty explanations map
+          keyInsights: []
         }));
 
         // Create the knowledge base object in the expected format
@@ -1076,11 +1130,83 @@ function KnowledgeBaseViewerContent() {
       setAnalysisLoading(true);
       try {
         if (activeTab === "connections" && !connectionsData) {
+          console.log('Fetching connections data for KB:', id);
           const data = await apiClient.getKnowledgebaseConnections(id);
+          console.log('Raw connections data from backend:', JSON.stringify(data, null, 2));
+          
           if (!data) {
-            await generateAnalysis();
+            console.log('No connections data, attempting to generate...');
+            try {
+              await generateAnalysis();
+            } catch (err) {
+              console.error('Error generating analysis:', err);
+              if (!knowledgeBase) {
+                setAnalysisLoading(false);
+                return;
+              }
+              const defaultConnections: ConnectionsData = {
+                nodes: knowledgeBase.papers.map(p => ({
+                  id: p.id,
+                  title: p.title,
+                  authors: p.authors,
+                  year: p.year,
+                  citations: p.citations,
+                  qualityScore: p.qualityScore,
+                  x: 0,
+                  y: 0,
+                  connections: 0
+                })),
+                edges: knowledgeBase.papers.length > 1 ? [{
+                  id: 'default-edge',
+                  source: knowledgeBase.papers[0].id,
+                  target: knowledgeBase.papers[1].id,
+                  strength: 0.5,
+                  explanation: 'Auto-generated default connection',
+                  style: { stroke: '#6366f1', strokeWidth: 2, strokeOpacity: 0.6 },
+                  animated: false
+                }] : [],
+                stats: {
+                  totalNodes: knowledgeBase.papers.length,
+                  totalConnections: knowledgeBase.papers.length > 1 ? 1 : 0,
+                  avgDegree: knowledgeBase.papers.length > 1 ? 1 / knowledgeBase.papers.length : 0
+                }
+              };
+              setConnectionsData(defaultConnections);
+            }
           } else {
+            console.log('Setting connections data:', data);
             setConnectionsData(data as ConnectionsData);
+            // Update papers with connections data
+            if (knowledgeBase && data) {
+              console.log('Updating papers with connections');
+              const updatedPapers = knowledgeBase.papers.map(paper => {
+                const connections = (data as ConnectionsData).edges
+                  .filter(edge => edge.source === paper.id || edge.target === paper.id)
+                  .map(edge => edge.source === paper.id ? edge.target : edge.source);
+                
+                const connectionExplanations = (data as ConnectionsData).edges
+                  .filter(edge => edge.source === paper.id || edge.target === paper.id)
+                  .reduce((acc, edge) => {
+                    const connectedId = edge.source === paper.id ? edge.target : edge.source;
+                    acc[connectedId] = edge.explanation;
+                    return acc;
+                  }, {} as Record<string, string>);
+
+                console.log(`Paper ${paper.id} connections:`, connections);
+                console.log(`Paper ${paper.id} explanations:`, connectionExplanations);
+
+                return {
+                  ...paper,
+                  connections,
+                  connectionExplanations
+                };
+              });
+              console.log('Setting updated knowledge base with connections');
+              setKnowledgeBase({
+                ...knowledgeBase,
+                papers: updatedPapers
+              });
+            }
           }
         }
         
@@ -1162,7 +1288,10 @@ function KnowledgeBaseViewerContent() {
   }, [knowledgeBase]);
 
   const handlePaperClick = (paper: Paper) => {
-    // Use the paper's original ID from the database
+    // Set the selected paper ID
+    setSelectedPaper(paper.id);
+    
+    // Use the paper's original ID from the database for navigation
     const paperId = paper._originalData?.arxiv_id || paper.id;
     navigate(`/document/${paperId}`, { state: { paper } });
   };
@@ -1313,8 +1442,8 @@ function KnowledgeBaseViewerContent() {
                   </div>
                   
                   <select
-                    value={filterTopic || ""}
-                    onChange={(e) => setFilterTopic(e.target.value || null)}
+                    value={filterTopic}
+                    onChange={(e) => setFilterTopic(e.target.value)}
                     className="bg-white/[0.05] border border-white/[0.1] text-white rounded-md px-3 py-2 text-sm"
                   >
                     <option value="">All Topics</option>
@@ -1365,7 +1494,7 @@ function KnowledgeBaseViewerContent() {
                         key={paper.id}
                         className={cn(
                           "bg-white/[0.02] border-white/[0.08] hover:bg-white/[0.04] transition-all duration-300 cursor-pointer group",
-                          selectedPaper === paper.id && "ring-2 ring-indigo-500 bg-indigo-500/5"
+                          selectedPaper && selectedPaper === paper.id && "ring-2 ring-indigo-500 bg-indigo-500/5"
                         )}
                         onClick={() => handlePaperClick(paper)}
                       >
@@ -1425,7 +1554,7 @@ function KnowledgeBaseViewerContent() {
                         key={paper.id}
                         className={cn(
                           "bg-white/[0.02] border-white/[0.08] hover:bg-white/[0.04] transition-all duration-300 cursor-pointer",
-                          selectedPaper === paper.id && "ring-2 ring-indigo-500 bg-indigo-500/5"
+                          selectedPaper && selectedPaper === paper.id && "ring-2 ring-indigo-500 bg-indigo-500/5"
                         )}
                         onClick={() => handlePaperClick(paper)}
                       >
@@ -1499,7 +1628,12 @@ function KnowledgeBaseViewerContent() {
 
             {/* Connections Tab */}
             <TabsContent value="connections" className="mt-6">
-              <ResearchExplorer knowledgeBase={knowledgeBase} insightsData={currentInsightsData} activeTab="connections" />
+              <ResearchExplorer 
+                knowledgeBase={knowledgeBase} 
+                insightsData={currentInsightsData} 
+                activeTab="connections" 
+                connectionsData={connectionsData || undefined} 
+              />
             </TabsContent>
 
             {/* Analytics Tab */}
@@ -1858,7 +1992,7 @@ function KnowledgeBaseViewerContent() {
                                 <div
                                   key={connectionId}
                                   className="p-2 bg-white/[0.02] border border-white/[0.05] rounded text-sm cursor-pointer hover:bg-white/[0.04]"
-                                  onClick={() => setSelectedPaper(connectionId)}
+                                  onClick={() => setSelectedPaper(connectedPaper.id)}
                                 >
                                   <p className="text-white/80 font-medium line-clamp-1">
                                     {connectedPaper.title}
