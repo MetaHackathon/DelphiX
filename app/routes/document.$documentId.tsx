@@ -29,7 +29,11 @@ import {
   Trash2,
   Edit3,
   Save,
-  X
+  X,
+  Mic,
+  MicOff,
+  Phone,
+  PhoneOff
 } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
@@ -40,6 +44,7 @@ import { Textarea } from "~/components/ui/textarea";
 import React from "react";
 import { PdfViewerWrapper } from "~/components/pdf-viewer-wrapper";
 import type { Highlight, ExtendedHighlight, HighlightType } from "~/components/pdf-viewer-types";
+import { Conversation } from '@elevenlabs/client';
 
 // PDF Highlighter imports - using extended library with better TypeScript support
 // Moved to dynamic imports in the component to avoid SSR issues
@@ -155,6 +160,11 @@ export default function DocumentViewer() {
   const [contextHighlights, setContextHighlights] = useState<string[]>([]);
   const [selectedHighlight, setSelectedHighlight] = useState<string | null>(null);
   const [annotationContent, setAnnotationContent] = useState("");
+
+  // ElevenLabs Conversational AI State
+  const [conversation, setConversation] = useState<Conversation | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connected' | 'connecting'>('disconnected');
+  const [agentStatus, setAgentStatus] = useState<'listening' | 'speaking'>('listening');
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -405,6 +415,40 @@ export default function DocumentViewer() {
 
   const highlighterUtilsRef = useRef<any>();
 
+  const startConversation = async () => {
+    setConnectionStatus('connecting');
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      const conv = await Conversation.startSession({
+        agentId: 'agent_01jxe41sqpe0br7385z6dage63',
+        onConnect: () => {
+          setConnectionStatus('connected');
+        },
+        onDisconnect: () => {
+          setConnectionStatus('disconnected');
+        },
+        onError: (error) => {
+          console.error('Error:', error);
+          setConnectionStatus('disconnected');
+        },
+        onModeChange: (mode) => {
+          setAgentStatus(mode.mode === 'speaking' ? 'speaking' : 'listening');
+        },
+      });
+      setConversation(conv);
+    } catch (error) {
+      console.error('Failed to start conversation:', error);
+      setConnectionStatus('disconnected');
+    }
+  };
+
+  const stopConversation = async () => {
+    if (conversation) {
+      await conversation.endSession();
+      setConversation(null);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#121212] pt-20">
       {/* Top Bar - Document Controls */}
@@ -496,6 +540,60 @@ export default function DocumentViewer() {
             >
               <Square className="w-3.5 h-3.5" />
             </Button>
+          </div>
+
+          <Separator orientation="vertical" className="h-5 bg-white/10" />
+
+          {/* ElevenLabs Conversational AI Controls */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 text-xs text-white/70">
+              {connectionStatus === 'connected' && agentStatus === 'listening' && (
+                <div className="flex items-center gap-1.5 text-green-400">
+                  <Mic className="h-3 w-3 animate-pulse" />
+                  Listening
+                </div>
+              )}
+              {connectionStatus === 'connected' && agentStatus === 'speaking' && (
+                <div className="flex items-center gap-1.5 text-blue-400">
+                  <Phone className="h-3 w-3" />
+                  Speaking
+                </div>
+              )}
+              {connectionStatus === 'connecting' && (
+                <div className="flex items-center gap-1.5 text-yellow-400">
+                  <span className="inline-block w-2 h-2 border-2 border-yellow-400/20 border-t-yellow-400 rounded-full animate-spin" />
+                  Connecting...
+                </div>
+              )}
+              {connectionStatus === 'disconnected' && (
+                <div className="flex items-center gap-1.5 text-red-400">
+                  <MicOff className="h-3 w-3" />
+                  Disconnected
+                </div>
+              )}
+            </div>
+            {connectionStatus !== 'connected' ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={startConversation}
+                disabled={connectionStatus === 'connecting'}
+                className="text-white/70 hover:text-white hover:bg-white/10 h-8 px-3"
+              >
+                <Phone className="w-3.5 h-3.5 mr-1.5" />
+                Start Call
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={stopConversation}
+                className="text-red-400 hover:text-red-300 hover:bg-red-500/10 h-8 px-3"
+              >
+                <PhoneOff className="w-3.5 h-3.5 mr-1.5" />
+                End Call
+              </Button>
+            )}
           </div>
 
           <Separator orientation="vertical" className="h-5 bg-white/10" />
