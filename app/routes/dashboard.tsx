@@ -189,12 +189,25 @@ function DashboardContent() {
           transition={{ duration: 0.6 }}
           className="mb-8 text-left"
         >
-          <h1 className="text-4xl font-bold text-white mb-3">
-            Welcome back, {user?.user_metadata?.full_name || user?.email}
-          </h1>
-          <p className="text-white/60 text-lg">
-            Start your research journey with AI-powered discovery
-          </p>
+          <motion.h1
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="text-6xl md:text-5xl font-extrabold leading-tight mb-4"
+          >
+            <span className="text-white/80">Welcome back, </span>
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-fuchsia-500 to-rose-400">{user?.user_metadata?.full_name || user?.email}</span>
+          </motion.h1>
+
+          <motion.p
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.1 }}
+            className="text-white/70 text-2xl font-medium md:text-xl max-w-2xl"
+          >
+            Start your research journey with&nbsp;
+            <span className="bg-clip-text text-white/80 font-extrabold">AI-powered discovery</span>
+          </motion.p>
         </motion.div>
 
         {/* Stats Overview */}

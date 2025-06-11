@@ -257,7 +257,7 @@ export default function Index() {
       </section>
 
       {/* Stats Section */}
-      <section className="relative py-16 px-4">
+      {/* <section className="relative py-16 px-4">
         <div className="container mx-auto max-w-5xl">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {stats.map((stat, index) => (
@@ -276,7 +276,7 @@ export default function Index() {
             ))}
           </div>
         </div>
-      </section>
+      </section> */}
 
       {/* Features Section */}
       <section className="relative py-20 px-4">
