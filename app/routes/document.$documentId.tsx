@@ -159,7 +159,6 @@ export default function DocumentViewer() {
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const highlighterUtilsRef = useRef<any>();
 
   // Zoom functionality with native-like behavior
   const zoomLevels = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
@@ -403,6 +402,8 @@ export default function DocumentViewer() {
     setInputValue(prompt);
     setShowPrompts(false);
   };
+
+  const highlighterUtilsRef = useRef<any>();
 
   return (
     <div className="min-h-screen bg-[#121212] pt-20">
@@ -663,110 +664,108 @@ export default function DocumentViewer() {
                   <div className="flex-1 flex flex-col overflow-hidden">
                     {/* Messages */}
                     <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-[#1a1f2e] scrollbar-track-transparent">
-                      <div className="p-3 space-y-3">
-                        {/* Context Highlights */}
-                        {contextHighlights.length > 0 && (
-                          <div className="p-2 bg-[#1a1f2e]/20 border-l-2 border-[#43c2ff]/30 rounded-sm">
-                            <p className="text-[10px] text-[#43c2ff]/90 font-medium mb-1">Chat Context:</p>
-                            {contextHighlights.map(id => {
-                              const highlight = highlights.find(h => h.id === id);
-                              return highlight ? (
-                                <div key={id} className="flex items-center justify-between text-[10px] py-1">
-                                  <span className="text-white/70 truncate">{highlight.content?.text?.slice(0, 50)}...</span>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => removeHighlightFromContext(id)}
-                                    className="h-4 w-4 p-0 text-white/50 hover:text-white hover:bg-white/10 rounded-full ml-2"
-                                  >
-                                    <X className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                              ) : null;
-                            })}
-                          </div>
-                        )}
-
-                        {/* Example Prompts */}
-                        {messages.length === 1 && showPrompts && (
-                          <div className="space-y-2 py-2">
-                            <div className="text-center">
-                              <Sparkles className="h-5 w-5 mx-auto mb-2 text-[#43c2ff]/70" />
-                              <h3 className="text-xs font-medium text-white/90 mb-1">Research Assistant</h3>
-                              <p className="text-[10px] text-white/60">Ask me anything about the paper</p>
-                            </div>
-                            <div className="grid grid-cols-2 gap-2">
-                              {EXAMPLE_PROMPTS.map((prompt, index) => (
-                                <button
-                                  key={index}
-                                  onClick={() => handlePromptClick(prompt)}
-                                  className="p-2 text-[10px] bg-[#1a1f2e]/30 hover:bg-[#1a1f2e]/50 rounded-md text-white/70 transition-colors border border-[#1a1f2e]/30 hover:border-[#1a1f2e]/50 text-left"
+                      {/* Context Highlights */}
+                      {contextHighlights.length > 0 && (
+                        <div className="p-2 bg-[#1a1f2e]/20 border-l-2 border-[#43c2ff]/30 rounded-sm">
+                          <p className="text-[10px] text-[#43c2ff]/90 font-medium mb-1">Chat Context:</p>
+                          {contextHighlights.map(id => {
+                            const highlight = highlights.find(h => h.id === id);
+                            return highlight ? (
+                              <div key={id} className="flex items-center justify-between text-[10px] py-1">
+                                <span className="text-white/70 truncate">{highlight.content?.text?.slice(0, 50)}...</span>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => removeHighlightFromContext(id)}
+                                  className="h-4 w-4 p-0 text-white/50 hover:text-white hover:bg-white/10 rounded-full ml-2"
                                 >
-                                  {prompt}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ) : null;
+                          })}
+                        </div>
+                      )}
 
-                        {/* Messages */}
-                        {messages.map((message) => (
-                          <div
-                            key={message.id}
-                            className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
-                          >
-                            <div className={`max-w-[85%] ${message.type === 'user' ? 'ml-4' : 'mr-4'}`}>
-                              {message.type === 'assistant' && (
-                                <div className="flex items-center gap-2 mb-1">
-                                  <div className="w-5 h-5 bg-[#43c2ff]/10 rounded-full flex items-center justify-center">
-                                    <span className="text-[10px] text-[#43c2ff]">AI</span>
-                                  </div>
-                                  <span className="text-[10px] font-medium text-white/70">Assistant</span>
+                      {/* Example Prompts */}
+                      {messages.length === 1 && showPrompts && (
+                        <div className="space-y-2 py-2">
+                          <div className="text-center">
+                            <Sparkles className="h-5 w-5 mx-auto mb-2 text-[#43c2ff]/70" />
+                            <h3 className="text-xs font-medium text-white/90 mb-1">Research Assistant</h3>
+                            <p className="text-[10px] text-white/60">Ask me anything about the paper</p>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            {EXAMPLE_PROMPTS.map((prompt, index) => (
+                              <button
+                                key={index}
+                                onClick={() => handlePromptClick(prompt)}
+                                className="p-2 text-[10px] bg-[#1a1f2e]/30 hover:bg-[#1a1f2e]/50 rounded-md text-white/70 transition-colors border border-[#1a1f2e]/30 hover:border-[#1a1f2e]/50 text-left"
+                              >
+                                {prompt}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Messages */}
+                      {messages.map((message) => (
+                        <div
+                          key={message.id}
+                          className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
+                        >
+                          <div className={`max-w-[85%] ${message.type === 'user' ? 'ml-4' : 'mr-4'}`}>
+                            {message.type === 'assistant' && (
+                              <div className="flex items-center gap-2 mb-1">
+                                <div className="w-5 h-5 bg-[#43c2ff]/10 rounded-full flex items-center justify-center">
+                                  <span className="text-[10px] text-[#43c2ff]">AI</span>
+                                </div>
+                                <span className="text-[10px] font-medium text-white/70">Assistant</span>
+                              </div>
+                            )}
+                            
+                            <div className={`rounded-lg p-3 ${
+                              message.type === 'user' 
+                                ? 'bg-blue-600 text-white' 
+                                : 'bg-[#1a1f2e]/30 text-white/90'
+                            }`}>
+                              <div className="text-xs leading-relaxed whitespace-pre-wrap prose prose-invert prose-sm max-w-none">
+                                {message.content}
+                              </div>
+                              
+                              {message.context && (
+                                <div className="mt-2 pt-2 border-t border-white/10">
+                                  <p className="text-[10px] text-white/60">{message.context}</p>
                                 </div>
                               )}
-                              
-                              <div className={`rounded-lg p-3 ${
-                                message.type === 'user' 
-                                  ? 'bg-blue-600 text-white' 
-                                  : 'bg-[#1a1f2e]/30 text-white/90'
-                              }`}>
-                                <div className="text-xs leading-relaxed whitespace-pre-wrap prose prose-invert prose-sm max-w-none">
-                                  {message.content}
-                                </div>
-                                
-                                {message.context && (
-                                  <div className="mt-2 pt-2 border-t border-white/10">
-                                    <p className="text-[10px] text-white/60">{message.context}</p>
-                                  </div>
-                                )}
-                              </div>
-                              
-                              <div className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'} mt-1`}>
-                                <span className="text-[10px] text-white/40">
-                                  {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </span>
-                              </div>
+                            </div>
+                            
+                            <div className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'} mt-1`}>
+                              <span className="text-[10px] text-white/40">
+                                {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
                             </div>
                           </div>
-                        ))}
-                        
-                        {isLoading && (
-                          <div className="flex justify-start">
-                            <div className="bg-[#1a1f2e]/30 rounded-lg p-3">
-                              <div className="flex items-center gap-2">
-                                <div className="flex space-x-1">
-                                  <div className="w-2 h-2 bg-white/40 rounded-full animate-bounce"></div>
-                                  <div className="w-2 h-2 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                                  <div className="w-2 h-2 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                                </div>
-                                <span className="text-[10px] text-white/50">Analyzing...</span>
+                        </div>
+                      ))}
+                      
+                      {isLoading && (
+                        <div className="flex justify-start">
+                          <div className="bg-[#1a1f2e]/30 rounded-lg p-3">
+                            <div className="flex items-center gap-2">
+                              <div className="flex space-x-1">
+                                <div className="w-2 h-2 bg-white/40 rounded-full animate-bounce"></div>
+                                <div className="w-2 h-2 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                                <div className="w-2 h-2 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                               </div>
+                              <span className="text-[10px] text-white/50">Analyzing...</span>
                             </div>
                           </div>
-                        )}
-                        
-                        <div ref={messagesEndRef} />
-                      </div>
+                        </div>
+                      )}
+                      
+                      <div ref={messagesEndRef} />
                     </div>
 
                     {/* Chat Input */}

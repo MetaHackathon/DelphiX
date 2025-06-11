@@ -23,7 +23,8 @@ import {
   Loader2,
   ArrowRight,
   BarChart3,
-  MessageCircle
+  MessageCircle,
+  Volume2
 } from "lucide-react";
 
 export const meta: MetaFunction = () => {
@@ -142,10 +143,10 @@ function DashboardContent() {
       color: "from-purple-500 to-violet-500",
     },
     {
-      title: "Start Chat",
-      description: "Chat with your papers",
-      icon: Brain,
-      href: "/chat",
+      title: "Generate Podcast",
+      description: "Create audio versions of your papers",
+      icon: Volume2,
+      href: "/podcast",
       color: "from-orange-500 to-red-500",
     },
   ];
@@ -223,12 +224,12 @@ function DashboardContent() {
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-green-500/20 rounded-lg">
-                  <MessageCircle className="h-4 w-4 text-green-400" />
+                  <Volume2 className="h-4 w-4 text-green-400" />
                 </div>
                 <div>
-                  <p className="text-sm text-white/60">Chat Sessions</p>
+                  <p className="text-sm text-white/60">Podcasts</p>
                   <p className="text-xl font-semibold text-white">
-                    {stats.total_chat_sessions || 0}
+                    {stats.total_podcasts || 0}
                   </p>
                 </div>
               </div>
