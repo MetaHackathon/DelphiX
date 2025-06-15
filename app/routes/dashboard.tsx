@@ -39,16 +39,55 @@ function DashboardContent() {
   const { user } = useAuth();
   
   // State
-  const [stats, setStats] = useState<any>({});
-  const [recentPapers, setRecentPapers] = useState<any[]>([]);
-  const [recentChats, setRecentChats] = useState<any[]>([]);
-  const [knowledgeBases, setKnowledgeBases] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<any>(() => {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('dashboard-stats');
+      return cached ? JSON.parse(cached) : {};
+    }
+    return {};
+  });
+  const [recentPapers, setRecentPapers] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('dashboard-papers');
+      return cached ? JSON.parse(cached) : [];
+    }
+    return [];
+  });
+  const [recentChats, setRecentChats] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('dashboard-chats');
+      return cached ? JSON.parse(cached) : [];
+    }
+    return [];
+  });
+  const [knowledgeBases, setKnowledgeBases] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('dashboard-kb');
+      return cached ? JSON.parse(cached) : [];
+    }
+    return [];
+  });
+  const [loading, setLoading] = useState(() => {
+    // Only show loading if we have no cached data
+    if (typeof window !== 'undefined') {
+      const hasStats = localStorage.getItem('dashboard-stats');
+      const hasPapers = localStorage.getItem('dashboard-papers');
+      return !hasStats && !hasPapers;
+    }
+    return true;
+  });
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
-      loadUserData();
+      // Check if data is fresh (less than 2 minutes old)
+      const lastFetch = localStorage.getItem('dashboard-last-fetch');
+      const now = Date.now();
+      const twoMinutes = 2 * 60 * 1000;
+      
+      if (!lastFetch || (now - parseInt(lastFetch)) > twoMinutes) {
+        loadUserData();
+      }
     }
   }, [user]);
 
@@ -57,9 +96,16 @@ function DashboardContent() {
     try {
       setLoading(true);
       setError(null);
+      
+      // Set user ID for API client BEFORE making requests
+      apiClient.setUserId(user.id);
+      
+      
       // Fetch dashboard data from backend
       const dashboardData: any = await apiClient.getDashboard();
-      setStats(dashboardData.quick_stats || {});
+      const newStats = dashboardData.quick_stats || {};
+      setStats(newStats);
+      localStorage.setItem('dashboard-stats', JSON.stringify(newStats));
       // Optionally, set research_metrics from ai_insights or other fields
       if (dashboardData.ai_insights && dashboardData.ai_insights.length > 0) {
         setStats((prev: any) => ({
@@ -75,42 +121,50 @@ function DashboardContent() {
           }
         }));
       }
-      // Get recent papers
-      try {
-        const papersData = await apiClient.getLibrary() as any[];
-        setRecentPapers(papersData.slice(0, 5));
-      } catch (error) {
-        setRecentPapers([]);
-      }
-      // Get recent chat sessions
-      try {
-        const { data: chatsData } = await supabase
-          .from('chat_sessions')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('updated_at', { ascending: false })
-          .limit(3);
-        setRecentChats(chatsData || []);
-      } catch (error) {
-        setRecentChats([]);
-      }
-      // Get knowledge bases
-      try {
-        const { data: kbData } = await supabase
-          .from('knowledge_bases')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(3);
-        setKnowledgeBases(kbData || []);
-      } catch (error) {
-        setKnowledgeBases([]);
-      }
-    } catch (error) {
-      setError('Failed to load dashboard data. Please try again later.');
-    } finally {
-      setLoading(false);
-    }
+             // Get recent papers
+       try {
+         const papersData = await apiClient.getLibrary() as any[];
+         const recentPapersData = papersData.slice(0, 5);
+         setRecentPapers(recentPapersData);
+         localStorage.setItem('dashboard-papers', JSON.stringify(recentPapersData));
+       } catch (error) {
+         setRecentPapers([]);
+       }
+       // Get recent chat sessions
+       try {
+         const { data: chatsData } = await supabase
+           .from('chat_sessions')
+           .select('*')
+           .eq('user_id', user.id)
+           .order('updated_at', { ascending: false })
+           .limit(3);
+         const chatData = chatsData || [];
+         setRecentChats(chatData);
+         localStorage.setItem('dashboard-chats', JSON.stringify(chatData));
+       } catch (error) {
+         setRecentChats([]);
+       }
+       // Get knowledge bases
+       try {
+         const { data: kbData } = await supabase
+           .from('knowledge_bases')
+           .select('*')
+           .eq('user_id', user.id)
+           .order('created_at', { ascending: false })
+           .limit(3);
+         const kbDataArray = kbData || [];
+         setKnowledgeBases(kbDataArray);
+         localStorage.setItem('dashboard-kb', JSON.stringify(kbDataArray));
+       } catch (error) {
+         setKnowledgeBases([]);
+       }
+         } catch (error) {
+       setError('Failed to load dashboard data. Please try again later.');
+     } finally {
+       setLoading(false);
+       // Mark data as fresh
+       localStorage.setItem('dashboard-last-fetch', Date.now().toString());
+     }
   };
 
   const quickActions = [
@@ -182,32 +236,177 @@ function DashboardContent() {
   return (
     <div className="min-h-screen bg-[#030303] pt-20">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
-        {/* Header */}
+        {/* Header with Animated Background */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="mb-8 text-left"
+          className="relative mb-12 text-left overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-pink-500/10 border border-white/[0.08] p-8 md:p-12"
         >
-          <motion.h1
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="text-6xl md:text-5xl font-extrabold leading-tight mb-4"
-          >
-            <span className="text-white/80">Welcome back, </span>
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-fuchsia-500 to-rose-400">{user?.user_metadata?.full_name || user?.email}</span>
-          </motion.h1>
+          {/* Animated Background Elements */}
+          <div className="absolute inset-0 overflow-hidden">
+            {/* Floating Gradient Orbs */}
+            <motion.div
+              animate={{
+                x: [0, 100, 0],
+                y: [0, -50, 0],
+                scale: [1, 1.2, 1],
+              }}
+              transition={{
+                duration: 8,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
+              className="absolute -top-20 -right-20 w-40 h-40 bg-gradient-to-br from-blue-400/20 to-cyan-400/20 rounded-full blur-3xl"
+            />
+            <motion.div
+              animate={{
+                x: [0, -80, 0],
+                y: [0, 60, 0],
+                scale: [1.2, 1, 1.2],
+              }}
+              transition={{
+                duration: 10,
+                repeat: Infinity,
+                ease: "easeInOut",
+                delay: 2,
+              }}
+              className="absolute -bottom-16 -left-16 w-32 h-32 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full blur-3xl"
+            />
+            <motion.div
+              animate={{
+                x: [0, 60, 0],
+                y: [0, -40, 0],
+                scale: [1, 1.3, 1],
+              }}
+              transition={{
+                duration: 12,
+                repeat: Infinity,
+                ease: "easeInOut",
+                delay: 4,
+              }}
+              className="absolute top-1/2 right-1/3 w-24 h-24 bg-gradient-to-br from-emerald-400/20 to-teal-400/20 rounded-full blur-2xl"
+            />
 
-          <motion.p
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.1 }}
-            className="text-white/70 text-2xl font-medium md:text-xl max-w-2xl"
-          >
-            Start your research journey with&nbsp;
-            <span className="bg-clip-text text-white/80 font-extrabold">AI-powered discovery</span>
-          </motion.p>
+            {/* Floating Icons */}
+            <motion.div
+              animate={{
+                y: [0, -20, 0],
+                rotate: [0, 10, 0],
+              }}
+              transition={{
+                duration: 6,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
+              className="absolute top-8 right-12 opacity-10"
+            >
+              <Brain size={32} className="text-purple-400" />
+            </motion.div>
+            <motion.div
+              animate={{
+                y: [0, 15, 0],
+                rotate: [0, -8, 0],
+              }}
+              transition={{
+                duration: 7,
+                repeat: Infinity,
+                ease: "easeInOut",
+                delay: 1,
+              }}
+              className="absolute bottom-8 right-20 opacity-10"
+            >
+              <FileText size={28} className="text-blue-400" />
+            </motion.div>
+            <motion.div
+              animate={{
+                y: [0, -12, 0],
+                rotate: [0, 12, 0],
+              }}
+              transition={{
+                duration: 8,
+                repeat: Infinity,
+                ease: "easeInOut",
+                delay: 3,
+              }}
+              className="absolute top-1/2 right-8 opacity-10"
+            >
+              <Sparkles size={24} className="text-pink-400" />
+            </motion.div>
+
+            {/* Animated Grid Pattern */}
+            <div className="absolute inset-0 opacity-5">
+              <div className="w-full h-full bg-[linear-gradient(to_right,#ffffff_1px,transparent_1px),linear-gradient(to_bottom,#ffffff_1px,transparent_1px)] bg-[size:40px_40px]" />
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="relative z-10">
+            <motion.h1
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8 }}
+              className="text-6xl md:text-5xl font-extrabold leading-tight mb-4"
+            >
+              <span className="text-white/80">Welcome back, </span>
+              <motion.span
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 1, delay: 0.3 }}
+                className="relative inline-block"
+              >
+                <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-fuchsia-500 to-rose-400 animate-pulse">
+                  {user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'Demo User'}
+                </span>
+                {/* Glowing underline */}
+                <motion.div
+                  initial={{ scaleX: 0 }}
+                  animate={{ scaleX: 1 }}
+                  transition={{ duration: 1, delay: 0.8 }}
+                  className="absolute -bottom-2 left-0 right-0 h-1 bg-gradient-to-r from-indigo-400 via-fuchsia-500 to-rose-400 rounded-full opacity-60"
+                />
+              </motion.span>
+            </motion.h1>
+
+            <motion.p
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.1 }}
+              className="text-white/70 text-xl md:text-2xl font-medium max-w-4xl mb-6"
+            >
+              Start your research journey with{' '}
+              <span className="bg-clip-text text-white/80 font-extrabold">AI-powered discovery</span>
+              <motion.span
+                initial={{ opacity: 0, scale: 0 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.5, delay: 0.8 }}
+                className="inline-block ml-2"
+              >
+                <Sparkles className="inline w-5 h-5 md:w-6 md:h-6 text-yellow-400 animate-spin" style={{ animationDuration: '3s' }} />
+              </motion.span>
+            </motion.p>
+
+            {/* Stats Preview */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.4 }}
+              className="flex items-center gap-6 text-sm text-white/60"
+            >
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                <span>{stats.total_papers || 0} papers indexed</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" style={{ animationDelay: '0.5s' }} />
+                <span>{stats.total_knowledgebases || 0} knowledge bases</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" style={{ animationDelay: '1s' }} />
+                <span>AI-powered insights</span>
+              </div>
+            </motion.div>
+          </div>
         </motion.div>
 
         {/* Stats Overview */}

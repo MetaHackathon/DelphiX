@@ -34,9 +34,23 @@ interface KnowledgeBase {
 export default function KnowledgeCanvas() {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([]);
+  const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>(() => {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('knowledge-canvas-data');
+      return cached ? JSON.parse(cached) : [];
+    }
+    return [];
+  });
   const [filteredKnowledgeBases, setFilteredKnowledgeBases] = useState<KnowledgeBase[]>([]);
+  const [loading, setLoading] = useState(() => {
+    // Only show loading if we have no cached data
+    if (typeof window !== 'undefined') {
+      const hasData = localStorage.getItem('knowledge-canvas-data');
+      return !hasData;
+    }
+    return true;
+  });
+  const [error, setError] = useState<string | null>(null);
 
   // Filter knowledge bases based on search query
   useEffect(() => {
@@ -58,6 +72,7 @@ export default function KnowledgeCanvas() {
 
     try {
       setLoading(true);
+      setError(null);
       
       console.log('Loading knowledge bases from API...');
       
@@ -68,27 +83,41 @@ export default function KnowledgeCanvas() {
       // The response should be an array of knowledge bases
       if (Array.isArray(response)) {
         setKnowledgeBases(response);
+        localStorage.setItem('knowledge-canvas-data', JSON.stringify(response));
         console.log(`Loaded ${response.length} knowledge bases`);
       } else {
         console.log('No knowledge bases found or invalid response');
         setKnowledgeBases([]);
+        localStorage.setItem('knowledge-canvas-data', JSON.stringify([]));
       }
     } catch (error) {
       console.error('Error loading knowledge bases:', error);
-      setKnowledgeBases([]);
+      setError('Failed to load knowledge bases. Please try again later.');
       
       // Show a user-friendly error message if the API is not available
       if (error instanceof Error && error.message.includes('Failed to fetch')) {
         console.warn('DataEngineX backend appears to be unavailable. Please ensure it is running on http://localhost:8000');
+        setError('DataEngineX backend is unavailable. Please ensure it is running.');
       }
     } finally {
       setLoading(false);
+      // Mark data as fresh
+      localStorage.setItem('knowledge-canvas-last-fetch', Date.now().toString());
     }
   };
 
   // Load knowledge bases when component mounts or user changes
   useEffect(() => {
-    loadKnowledgeBases();
+    if (user) {
+      // Check if data is fresh (less than 2 minutes old)
+      const lastFetch = localStorage.getItem('knowledge-canvas-last-fetch');
+      const now = Date.now();
+      const twoMinutes = 2 * 60 * 1000;
+      
+      if (!lastFetch || (now - parseInt(lastFetch)) > twoMinutes) {
+        loadKnowledgeBases();
+      }
+    }
   }, [user]);
 
   const handleCreateNew = () => {
@@ -109,7 +138,10 @@ export default function KnowledgeCanvas() {
     try {
       await apiClient.deleteKnowledgebase(id);
       // Update state directly instead of reloading
-      setKnowledgeBases(prev => prev.filter(kb => kb.id !== id));
+      const updatedKnowledgeBases = knowledgeBases.filter(kb => kb.id !== id);
+      setKnowledgeBases(updatedKnowledgeBases);
+      // Update localStorage cache
+      localStorage.setItem('knowledge-canvas-data', JSON.stringify(updatedKnowledgeBases));
       alert('Knowledge base deleted successfully');
     } catch (error) {
       console.error('Error deleting knowledge base:', error);
@@ -186,6 +218,21 @@ export default function KnowledgeCanvas() {
                 <div className="inline-flex items-center gap-3 text-white/60">
                   <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
                   <span>Loading knowledge bases...</span>
+                </div>
+              </div>
+            ) : error ? (
+              <div className="text-center py-12">
+                <div className="max-w-md mx-auto px-4">
+                  <div className="bg-red-500/10 rounded-lg p-4 mb-4">
+                    <p className="text-red-400">{error}</p>
+                  </div>
+                  <Button 
+                    onClick={loadKnowledgeBases} 
+                    variant="outline" 
+                    className="text-white border-white/[0.1] hover:bg-white/[0.05]"
+                  >
+                    Try Again
+                  </Button>
                 </div>
               </div>
             ) : filteredKnowledgeBases.length > 0 ? (

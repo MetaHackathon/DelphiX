@@ -403,554 +403,467 @@ function SearchPageContent() {
   };
 
   return (
-    <div className="min-h-screen bg-[#030303] pt-16">
-      <div className="container mx-auto px-4 py-6 max-w-7xl">
-        {/* Compact Header */}
+    <div className="min-h-screen bg-[#030303] pt-20 relative overflow-hidden">
+      {/* Animated Background */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        {/* Floating Gradient Orbs */}
+        <motion.div
+          animate={{
+            x: [0, 200, 0],
+            y: [0, -100, 0],
+            scale: [1, 1.4, 1],
+          }}
+          transition={{
+            duration: 20,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+          className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-emerald-500/20 to-teal-500/20 rounded-full blur-3xl"
+        />
+        <motion.div
+          animate={{
+            x: [0, -150, 0],
+            y: [0, 120, 0],
+            scale: [1.2, 1, 1.2],
+          }}
+          transition={{
+            duration: 25,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: 5,
+          }}
+          className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-blue-500/20 to-indigo-500/20 rounded-full blur-3xl"
+        />
+
+        {/* Floating Icons */}
+        <motion.div
+          animate={{
+            y: [0, -30, 0],
+            rotate: [0, 15, 0],
+          }}
+          transition={{
+            duration: 12,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+          className="absolute top-20 right-20 opacity-10"
+        >
+          <Search size={40} className="text-emerald-400" />
+        </motion.div>
+        <motion.div
+          animate={{
+            y: [0, 25, 0],
+            rotate: [0, -12, 0],
+          }}
+          transition={{
+            duration: 15,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: 4,
+          }}
+          className="absolute bottom-32 right-32 opacity-10"
+        >
+          <Brain size={36} className="text-blue-400" />
+        </motion.div>
+
+        {/* Animated Grid Pattern */}
+        <div className="absolute inset-0 opacity-5">
+          <div className="w-full h-full bg-[linear-gradient(to_right,#ffffff_1px,transparent_1px),linear-gradient(to_bottom,#ffffff_1px,transparent_1px)] bg-[size:100px_100px] animate-pulse" />
+        </div>
+      </div>
+
+      <div className="container mx-auto px-4 py-8 max-w-7xl relative z-10">
+        {/* Research Agent Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="mb-6"
+          className="mb-8"
         >
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-gradient-to-br from-indigo-500/20 to-rose-500/20 rounded-lg">
-              <Brain className="h-6 w-6 text-indigo-400" />
+          <div className="flex items-center gap-4 mb-6">
+            <div className="p-3 bg-white/[0.05] border border-white/[0.1] rounded-xl">
+              <FileText className="h-7 w-7 text-emerald-400" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-white">Research Knowledgebase Builder</h1>
-              <p className="text-white/60 text-sm">AI-powered intelligent search with multi-strategy discovery and quality assessment</p>
+              <h1 className="text-3xl font-bold text-white mb-1">
+                Find Papers on {knowledgebaseName || "Research Topics"}
+              </h1>
+              <p className="text-white/60">
+                AI-powered academic research discovery and analysis
+              </p>
             </div>
           </div>
 
-          {/* Compact Workflow Steps */}
-          <div className="grid grid-cols-4 gap-3 mb-6">
-            {[
-              { step: 1, title: "Search & Discover", icon: Search, active: true },
-              { step: 2, title: "Quality Assessment", icon: Shield, active: hasSearched },
-              { step: 3, title: "Curate Selection", icon: CheckSquare, active: selectedPapers.size > 0 },
-              { step: 4, title: "Build Knowledgebase", icon: Brain, active: selectedPapers.size > 0 && knowledgebaseName.trim() }
-            ].map(({ step, title, icon: Icon, active }) => (
-              <div key={step} className={cn(
-                "flex items-center gap-2 p-3 rounded-lg border transition-all duration-300 text-xs",
-                active 
-                  ? "bg-indigo-500/10 border-indigo-500/30 text-white" 
-                  : "bg-white/[0.02] border-white/[0.05] text-white/40"
-              )}>
-                <div className={cn(
-                  "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
-                  active ? "bg-indigo-500 text-white" : "bg-white/[0.05] text-white/40"
-                )}>
-                  {step}
-                </div>
-                <div className="min-w-0">
-                  <Icon className="h-3 w-3 mb-1" />
-                  <p className="font-medium truncate">{title}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-
-        {/* Compact Search Interface */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.2 }}
-          className="mb-6"
-        >
-          <Card className="bg-white/[0.02] border-white/[0.08] shadow-lg">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/40 h-4 w-4" />
-                  <input
-                    type="text"
-                    placeholder="AI-powered intelligent search across multiple strategies..."
+          {/* Clean Search Bar */}
+          <div className="space-y-4">
+            <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-4">
+              <div className="flex items-start gap-4">
+                <div className="flex-1">
+                  <textarea
+                    placeholder="What research question would you like to explore? Be as detailed as you want..."
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      // Auto-resize textarea
+                      e.target.style.height = 'auto';
+                      e.target.style.height = Math.max(44, e.target.scrollHeight) + 'px';
+                    }}
                     onKeyDown={handleKeyDown}
-                    className="w-full h-10 pl-10 pr-4 bg-white/[0.07] border border-white/[0.12] rounded-xl text-white text-sm placeholder:text-white/40 focus:outline-none focus:border-indigo-500/70 focus:bg-white/[0.10] transition-all shadow-sm"
+                    className="w-full bg-transparent text-white placeholder:text-white/50 resize-none focus:outline-none text-base font-medium leading-relaxed min-h-[44px]"
+                    rows={1}
+                    style={{ height: '44px' }}
                   />
                 </div>
                 <Button
                   onClick={() => handleSearch()}
                   disabled={isLoading || !searchQuery.trim()}
-                  className="h-10 px-5 rounded-lg bg-slate-700 hover:bg-slate-800 text-white font-medium shadow-sm transition-all text-sm focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 focus:ring-offset-[#030303]"
+                  className="h-10 px-6 bg-emerald-600 hover:bg-emerald-700 text-white font-medium flex-shrink-0"
                 >
                   {isLoading ? (
-                    <div className="flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>AI Searching...</span>
-                    </div>
+                    <Loader2 className="animate-spin h-4 w-4" />
                   ) : (
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="h-4 w-4" />
-                      <span>Intelligent Search</span>
-                    </div>
+                    "Search"
                   )}
                 </Button>
               </div>
-              <div className="flex items-center justify-between text-sm mt-2">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="highQuality"
-                      checked={showOnlyHighQuality}
-                      onChange={(e) => setShowOnlyHighQuality(e.target.checked)}
-                      className="rounded border-white/20 bg-white/5 focus:ring-2 focus:ring-indigo-400"
-                    />
-                    <label htmlFor="highQuality" className="text-white/70 cursor-pointer select-none">High Quality Only (90+)</label>
-                  </div>
-                  <Button
-                    onClick={handleToggleSelectAllVisible}
-                    variant="outline"
-                    size="sm"
-                    className={`h-7 px-3 border-slate-500/40 hover:bg-slate-700/10 hover:text-slate-800 rounded-md font-medium transition-all ${allVisibleSelected ? 'text-slate-800 border-slate-400 bg-slate-200' : 'text-slate-400'}`}
-                  >
-                    {allVisibleSelected ? (
-                      <>
-                        <Square className="h-4 w-4 mr-1" />
-                        Deselect All ({filteredResults.length})
-                      </>
-                    ) : (
-                      <>
-                        <CheckSquare className="h-4 w-4 mr-1" />
-                        Select All ({filteredResults.length})
-                      </>
-                    )}
-                  </Button>
+            </div>
+
+            {/* Example Query Cards */}
+            {!hasSearched && (
+              <div className="space-y-3">
+                <p className="text-white/60 text-sm">Try these research questions:</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {[
+                    "How do attention mechanisms improve neural machine translation compared to traditional sequence-to-sequence models?",
+                    "What are the latest advances in few-shot learning for computer vision and how do they compare to traditional supervised learning?",
+                    "How does BERT compare to other pre-trained language models like GPT and RoBERTa in terms of performance and efficiency?",
+                    "What are the key innovations in generative adversarial networks that have led to more stable training?"
+                  ].map((example, index) => (
+                    <motion.button
+                      key={index}
+                      whileHover={{ scale: 1.01 }}
+                      whileTap={{ scale: 0.99 }}
+                      onClick={() => {
+                        setSearchQuery(example);
+                        // Trigger auto-resize
+                        setTimeout(() => {
+                          const textarea = document.querySelector('textarea');
+                          if (textarea) {
+                            textarea.style.height = 'auto';
+                            textarea.style.height = Math.max(44, textarea.scrollHeight) + 'px';
+                          }
+                        }, 0);
+                      }}
+                      className="p-4 bg-white/[0.02] hover:bg-white/[0.05] text-white/70 hover:text-white rounded-lg transition-all border border-white/[0.05] hover:border-white/[0.08] text-left text-sm h-full"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="w-1.5 h-1.5 bg-emerald-400/60 rounded-full mt-2 flex-shrink-0" />
+                        <span className="leading-relaxed">{example}</span>
+                      </div>
+                    </motion.button>
+                  ))}
                 </div>
-                {!hasSearched && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-white/40">Try:</span>
-                    {suggestions.slice(0, 3).map((term) => (
-                      <button
-                        key={term}
-                        onClick={() => setSearchQuery(term)}
-                        className="px-2 py-1 bg-white/[0.07] text-white/70 rounded hover:bg-white/[0.12] transition-colors text-xs font-medium"
-                      >
-                        {term}
-                      </button>
-                    ))}
+              </div>
+            )}
+          </div>
+        </motion.div>
+
+        {/* Results Section with Bounded Height */}
+        {hasSearched ? (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="h-[calc(100vh-300px)] flex flex-col"
+          >
+            {/* Results Header */}
+            <div className="flex items-center justify-between mb-4 flex-shrink-0">
+              <div className="flex items-center gap-4">
+                <h2 className="text-xl font-semibold text-white">
+                  {isLoading ? "Searching academic databases..." : `${results.length} Sources`}
+                </h2>
+                {!isLoading && results.length > 0 && (
+                  <div className="flex items-center gap-3">
+                    <select className="bg-white/[0.05] border border-white/[0.08] rounded text-white text-sm px-3 py-1.5">
+                      <option>Most relevant</option>
+                      <option>Most cited</option>
+                      <option>Most recent</option>
+                    </select>
+                    <div className="flex items-center gap-2 text-sm text-white/60">
+                      <span>Scholarly papers only</span>
+                      <div className="w-8 h-4 bg-emerald-500 rounded-full relative cursor-pointer">
+                        <div className="w-3 h-3 bg-white rounded-full absolute top-0.5 right-0.5"></div>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
-              {/* Search Strategy Information */}
-              {lastSearchInfo && (
-                <div className="mt-3 pt-3 border-t border-white/[0.07]">
-                  <div className="flex items-center gap-4 text-xs text-white/60">
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      <span>{lastSearchInfo.processingTime || 'N/A'}</span>
-                    </div>
-                    {lastSearchInfo.totalCandidates && (
-                      <div className="flex items-center gap-1">
-                        <Database className="h-3 w-3" />
-                        <span>{lastSearchInfo.totalCandidates} candidates analyzed</span>
-                      </div>
-                    )}
-                    {lastSearchInfo.strategiesUsed && (
-                      <div className="flex items-center gap-1">
-                        <Target className="h-3 w-3" />
-                        <span>{lastSearchInfo.strategiesUsed.length} search strategies</span>
-                      </div>
-                    )}
-                  </div>
+              
+              {results.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
+                    className="bg-white/[0.05] border-white/[0.08] text-white hover:bg-white/[0.08] h-8"
+                  >
+                    {viewMode === 'grid' ? <List size={14} /> : <Grid3X3 size={14} />}
+                    <span className="ml-2">{viewMode === 'grid' ? 'List' : 'Grid'}</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleToggleSelectAllVisible}
+                    className="bg-white/[0.05] border-white/[0.08] text-white hover:bg-white/[0.08] h-8"
+                  >
+                    {selectedPapers.size === results.length ? 'Deselect All' : 'Select All'}
+                  </Button>
                 </div>
               )}
-            </CardContent>
-          </Card>
-        </motion.div>
+            </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-          {/* Compact Knowledgebase Builder Panel */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.4 }}
-            className="lg:col-span-1 space-y-4"
-          >
-            {/* Knowledgebase Configuration */}
-            <Card className="bg-white/[0.02] border-white/[0.08] sticky top-20">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-white text-sm">
-                  <Brain className="h-4 w-4 text-indigo-400" />
-                  Knowledgebase Builder
-                  {isCreatingKB && (
-                    <div className="ml-auto">
-                      <Loader2 className="h-3 w-3 text-indigo-400 animate-spin" />
-                    </div>
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 pt-0">
-                <div>
-                  <label className="text-xs text-white/60 mb-1 block">Knowledgebase Name</label>
-                  <Input
-                    placeholder="e.g., Transformer Architecture Papers"
-                    value={knowledgebaseName}
-                    onChange={(e) => setKnowledgebaseName(e.target.value)}
-                    className="bg-white/[0.05] border-white/[0.1] text-white h-8 text-sm"
-                  />
-                </div>
-                
-                <div>
-                  <label className="text-xs text-white/60 mb-1 block">Description</label>
-                  <textarea
-                    placeholder="Describe the purpose and scope..."
-                    value={knowledgebaseDescription}
-                    onChange={(e) => setKnowledgebaseDescription(e.target.value)}
-                    className="w-full h-16 px-2 py-1 bg-white/[0.05] border border-white/[0.1] rounded text-white placeholder:text-white/40 text-xs resize-none focus:outline-none focus:border-white/[0.2]"
-                  />
-                </div>
-
-                <Button
-                  onClick={createKnowledgebase}
-                  disabled={selectedPapers.size === 0 || !knowledgebaseName.trim() || isCreatingKB}
-                  className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 h-8 text-sm"
-                >
-                  {isCreatingKB ? (
-                    <div className="flex items-center gap-1">
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                      <span>Creating...</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1">
-                      <Brain className="h-3 w-3" />
-                      <span>Build Knowledgebase ({selectedPapers.size})</span>
-                    </div>
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Compact Knowledgebase Composition */}
+            {/* Knowledge Base Creation Banner */}
             {selectedPapers.size > 0 && (
-              <Card className="bg-white/[0.02] border-white/[0.08]">
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center gap-2 text-white text-sm">
-                    <BarChart3 className="h-4 w-4 text-indigo-400" />
-                    Composition
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3 pt-0">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-white/[0.02] rounded p-2">
-                      <div className="text-white/40 text-xs">Papers</div>
-                      <div className="text-white font-bold">{selectedPapers.size}</div>
-                    </div>
-                    <div className="bg-white/[0.02] rounded p-2">
-                      <div className="text-white/40 text-xs">Avg Quality</div>
-                      <div className="text-white font-bold">{avgQuality.toFixed(0)}</div>
-                    </div>
-                  </div>
-
-                  {yearRange && (
-                    <div className="bg-white/[0.02] rounded p-2">
-                      <div className="text-white/40 text-xs mb-1">Year Range</div>
-                      <div className="text-white text-xs">{yearRange.min} - {yearRange.max}</div>
-                    </div>
-                  )}
-
-                  {topTopics.length > 0 && (
-                    <div>
-                      <div className="text-white/40 text-xs mb-2">Top Topics</div>
-                      <div className="flex flex-wrap gap-1">
-                        {topTopics.map(topic => (
-                          <Badge key={topic} variant="secondary" className="bg-indigo-500/20 text-indigo-300 text-xs py-0">
-                            {topic}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-1 text-xs">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={clearSelection}
-                      className="text-white/60 hover:text-white h-6 px-2 text-xs"
-                    >
-                      <Square className="h-3 w-3 mr-1" />
-                      Clear All
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </motion.div>
-
-          {/* Compact Search Results */}
-          <div className="lg:col-span-3 relative">
-            {/* KB Creation Overlay */}
-            {isCreatingKB && (
-              <div className="absolute inset-0 bg-black/50 backdrop-blur-sm z-10 rounded-lg flex items-center justify-center">
-                <div className="bg-white/[0.1] border border-white/[0.2] rounded-lg p-6 text-center">
-                  <Loader2 className="h-8 w-8 text-indigo-400 animate-spin mx-auto mb-3" />
-                  <p className="text-white font-medium mb-1">Creating Knowledge Base</p>
-                  <p className="text-white/60 text-sm">Downloading and processing {selectedPapers.size} papers...</p>
-                </div>
-              </div>
-            )}
-            
-            {hasSearched && (
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
+                className="mb-4 p-4 bg-gradient-to-br from-emerald-500/10 to-blue-500/10 border border-emerald-500/20 rounded-lg flex-shrink-0"
               >
-                {/* Results Header */}
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <h2 className="text-lg font-semibold text-white">
-                      {isLoading ? "Analyzing Papers..." : `${filteredResults.length} candidates found`}
-                    </h2>
-                    {selectedPapers.size > 0 && (
-                      <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">
-                        {selectedPapers.size} selected for knowledgebase
-                      </Badge>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="sm" className="text-xs">
-                      <Activity className="h-3 w-3 mr-1" />
-                      Quality Filter
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setViewMode(viewMode === 'list' ? 'grid' : 'list')}
-                    >
-                      {viewMode === 'list' ? <Grid3X3 className="h-3 w-3" /> : <List className="h-3 w-3" />}
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Paper Candidates - Compact */}
-                <div className="h-[500px] overflow-y-auto space-y-3">
-                  {isLoading ? (
-                    <div className="flex items-center justify-center h-full">
-                      <div className="text-center">
-                        <Loader2 className="h-6 w-6 text-indigo-500 animate-spin mx-auto mb-3" />
-                        <p className="text-white/80 text-sm">Analyzing paper quality and relevance...</p>
-                      </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div>
+                      <h3 className="text-white font-semibold">Ready to Create Knowledge Base</h3>
+                      <p className="text-white/60 text-sm">
+                        {selectedPapers.size} papers selected • Avg Quality: {getKnowledgebaseComposition().avgQuality.toFixed(1)}/10
+                      </p>
                     </div>
-                  ) : filteredResults.length > 0 ? (
-                    viewMode === 'list' ? (
-                      <div className="space-y-4">
-                        {filteredResults.map((paper) => (
-                          <Card
-                            key={paper.id}
-                            className={cn(
-                              "bg-white/[0.02] border-white/[0.08] hover:bg-white/[0.04] transition-all duration-300 cursor-pointer",
-                              selectedPapers.has(paper.id) && "ring-2 ring-indigo-500 bg-indigo-500/5"
-                            )}
-                            onClick={() => handlePaperClick(paper)}
-                          >
-                            <CardContent className="p-4">
-                              <div className="flex gap-3">
-                                {/* Selection Checkbox */}
-                                <div className="flex-shrink-0 pt-1">
-                                  {selectedPapers.has(paper.id) ? (
-                                    <CheckSquare className="h-4 w-4 text-green-400" />
-                                  ) : (
-                                    <Square className="h-4 w-4 text-white/30 group-hover:text-white/50 transition-colors" />
-                                  )}
-                                </div>
-
-                                {/* Paper Content */}
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-start justify-between mb-2">
-                                    <h3 className="text-base font-semibold text-white group-hover:text-indigo-300 transition-colors line-clamp-2 pr-3">
-                                      {paper.title}
-                                    </h3>
-                                    
-                                    {/* Quality Indicators */}
-                                    <div className="flex items-center gap-1 flex-shrink-0">
-                                      <Badge className={cn(getQualityBadge(paper.qualityScore || 0).color, "text-xs")}>
-                                        {React.createElement(getQualityBadge(paper.qualityScore || 0).icon, { className: "h-2 w-2 mr-1" })}
-                                        {paper.qualityScore}
-                                      </Badge>
-                                      <Badge variant="secondary" className="bg-purple-500/20 text-purple-300 text-xs">
-                                        <TrendingUp className="h-2 w-2 mr-1" />
-                                        {paper.relevanceScore}%
-                                      </Badge>
-                                    </div>
-                                  </div>
-                                  
-                                  <p className="text-white/70 mb-3 line-clamp-2 leading-relaxed text-sm">
-                                    {paper.abstract}
-                                  </p>
-                                  
-                                  {/* Metadata Row */}
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3 text-xs text-white/60">
-                                      <div className="flex items-center gap-1">
-                                        <Users className="h-3 w-3" />
-                                        <span>{paper.authors.slice(0, 2).join(", ")}{paper.authors.length > 2 ? ` +${paper.authors.length - 2}` : ""}</span>
-                                      </div>
-                                      <div className="flex items-center gap-1">
-                                        <Calendar className="h-3 w-3" />
-                                        <span>{paper.year}</span>
-                                      </div>
-                                      <div className="flex items-center gap-1">
-                                        <Star className="h-3 w-3" />
-                                        <span>{paper.citations.toLocaleString()}</span>
-                                      </div>
-                                    </div>
-                                    
-                                    <div className="flex items-center gap-2">
-                                      {/* Topics */}
-                                      <div className="flex gap-1">
-                                        {paper.topics.slice(0, 2).map((topic) => (
-                                          <Badge key={topic} variant="secondary" className="bg-indigo-500/10 text-indigo-300 text-xs py-0">
-                                            {topic}
-                                          </Badge>
-                                        ))}
-                                      </div>
-                                      
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          // No-op or show a tooltip/modal in the future
-                                        }}
-                                        className="text-indigo-400 hover:text-indigo-300 h-6 w-6 p-0"
-                                      >
-                                        <Eye className="h-3 w-3" />
-                                      </Button>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {filteredResults.map((paper) => (
-                          <Card
-                            key={paper.id}
-                            className={cn(
-                              "bg-white/[0.02] border-white/[0.08] hover:bg-white/[0.04] transition-all duration-300 cursor-pointer",
-                              selectedPapers.has(paper.id) && "ring-2 ring-indigo-500 bg-indigo-500/5"
-                            )}
-                            onClick={() => handlePaperClick(paper)}
-                          >
-                            <CardContent className="p-4">
-                              <div className="flex gap-3">
-                                {/* Selection Checkbox */}
-                                <div className="flex-shrink-0 pt-1">
-                                  {selectedPapers.has(paper.id) ? (
-                                    <CheckSquare className="h-4 w-4 text-green-400" />
-                                  ) : (
-                                    <Square className="h-4 w-4 text-white/30 group-hover:text-white/50 transition-colors" />
-                                  )}
-                                </div>
-
-                                {/* Paper Content */}
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-start justify-between mb-2">
-                                    <h3 className="text-base font-semibold text-white group-hover:text-indigo-300 transition-colors line-clamp-2 pr-3">
-                                      {paper.title}
-                                    </h3>
-                                    
-                                    {/* Quality Indicators */}
-                                    <div className="flex items-center gap-1 flex-shrink-0">
-                                      <Badge className={cn(getQualityBadge(paper.qualityScore || 0).color, "text-xs")}>
-                                        {React.createElement(getQualityBadge(paper.qualityScore || 0).icon, { className: "h-2 w-2 mr-1" })}
-                                        {paper.qualityScore}
-                                      </Badge>
-                                      <Badge variant="secondary" className="bg-purple-500/20 text-purple-300 text-xs">
-                                        <TrendingUp className="h-2 w-2 mr-1" />
-                                        {paper.relevanceScore}%
-                                      </Badge>
-                                    </div>
-                                  </div>
-                                  
-                                  <p className="text-white/70 mb-3 line-clamp-2 leading-relaxed text-sm">
-                                    {paper.abstract}
-                                  </p>
-                                  
-                                  {/* Metadata Row */}
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3 text-xs text-white/60">
-                                      <div className="flex items-center gap-1">
-                                        <Users className="h-3 w-3" />
-                                        <span>{paper.authors.slice(0, 2).join(", ")}{paper.authors.length > 2 ? ` +${paper.authors.length - 2}` : ""}</span>
-                                      </div>
-                                      <div className="flex items-center gap-1">
-                                        <Calendar className="h-3 w-3" />
-                                        <span>{paper.year}</span>
-                                      </div>
-                                      <div className="flex items-center gap-1">
-                                        <Star className="h-3 w-3" />
-                                        <span>{paper.citations.toLocaleString()}</span>
-                                      </div>
-                                    </div>
-                                    
-                                    <div className="flex items-center gap-2">
-                                      {/* Topics */}
-                                      <div className="flex gap-1">
-                                        {paper.topics.slice(0, 2).map((topic) => (
-                                          <Badge key={topic} variant="secondary" className="bg-indigo-500/10 text-indigo-300 text-xs py-0">
-                                            {topic}
-                                          </Badge>
-                                        ))}
-                                      </div>
-                                      
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          // No-op or show a tooltip/modal in the future
-                                        }}
-                                        className="text-indigo-400 hover:text-indigo-300 h-6 w-6 p-0"
-                                      >
-                                        <Eye className="h-3 w-3" />
-                                      </Button>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    )
-                  ) : (
-                    <div className="flex items-center justify-center h-full">
-                      <div className="text-center max-w-md">
-                        <Search className="h-10 w-10 text-white/20 mx-auto mb-3" />
-                        <h3 className="text-lg font-semibold mb-2 text-white">No research papers found</h3>
-                        <p className="text-white/60 mb-4 text-sm">
-                          Try different keywords or adjust your quality filters.
-                        </p>
-                        <Button
-                          onClick={() => {
-                            setSearchQuery("");
-                            setHasSearched(false);
-                            setResults([]);
-                          }}
-                          variant="outline"
-                          className="border-white/[0.1] text-white/80 hover:bg-white/[0.08] text-sm"
-                        >
-                          New Search
-                        </Button>
-                      </div>
+                    <div className="flex items-center gap-3">
+                      <Input
+                        placeholder="Enter knowledge base name..."
+                        value={knowledgebaseName}
+                        onChange={(e) => setKnowledgebaseName(e.target.value)}
+                        className="w-64 bg-white/[0.05] border-white/[0.08] text-white placeholder:text-white/40 h-9"
+                      />
+                      <Button
+                        onClick={createKnowledgebase}
+                        disabled={isCreatingKB || !knowledgebaseName.trim()}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white h-9 px-6"
+                      >
+                        {isCreatingKB ? (
+                          <div className="flex items-center gap-2">
+                            <Loader2 className="animate-spin h-4 w-4" />
+                            <span>Creating...</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <Database className="h-4 w-4" />
+                            <span>Create Knowledge Base</span>
+                          </div>
+                        )}
+                      </Button>
                     </div>
-                  )}
+                  </div>
                 </div>
               </motion.div>
             )}
-          </div>
-        </div>
+
+            {/* Research Results with Fixed Height */}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 overflow-hidden">
+              {/* Main Results - Scrollable */}
+              <div className="lg:col-span-3 flex flex-col overflow-hidden">
+                <div className="flex-1 overflow-y-auto pr-3">
+                  {isLoading ? (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="text-center">
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                          className="mx-auto mb-4"
+                        >
+                          <Loader2 className="h-8 w-8 text-emerald-500" />
+                        </motion.div>
+                        <p className="text-white/80">Analyzing academic databases...</p>
+                        <p className="text-white/60 text-sm">Searching arXiv, PubMed, IEEE, ACM...</p>
+                      </div>
+                    </div>
+                  ) : results.length > 0 ? (
+                    <div className={cn(
+                      "gap-4",
+                      viewMode === 'grid' ? "grid grid-cols-1 xl:grid-cols-2" : "space-y-4"
+                    )}>
+                      {results.map((paper, index) => (
+                        <motion.div
+                          key={paper.id}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.05 }}
+                          className={cn(
+                            "bg-white/[0.02] border border-white/[0.08] rounded-lg hover:bg-white/[0.04] transition-all cursor-pointer",
+                            selectedPapers.has(paper.id) && "ring-1 ring-emerald-500/50 bg-emerald-500/5",
+                            viewMode === 'list' ? "p-6" : "p-4"
+                          )}
+                          onClick={() => handlePaperClick(paper)}
+                        >
+                          {/* Paper Header */}
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center gap-3">
+                              <div className="text-sm font-bold text-white/60 w-6">
+                                {index + 1}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Badge className="bg-blue-500/20 text-blue-300 text-xs">
+                                  arxiv.org
+                                </Badge>
+                                <Badge variant="outline" className="border-white/[0.08] text-white/60 text-xs">
+                                  {paper.year}
+                                </Badge>
+                                {paper.qualityScore && (
+                                  <Badge className={getQualityBadge(paper.qualityScore).color + " text-xs"}>
+                                    {getQualityBadge(paper.qualityScore).label}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {selectedPapers.has(paper.id) ? (
+                                <CheckSquare className="h-4 w-4 text-emerald-400" />
+                              ) : (
+                                <Square className="h-4 w-4 text-white/40" />
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Paper Title */}
+                          <h3 className={cn(
+                            "font-semibold text-white mb-3 leading-tight",
+                            viewMode === 'list' ? "text-lg" : "text-base"
+                          )}>
+                            {paper.title}
+                          </h3>
+
+                          {/* Paper Abstract */}
+                          <p className={cn(
+                            "text-white/70 leading-relaxed mb-4",
+                            viewMode === 'list' ? "text-sm line-clamp-3" : "text-xs line-clamp-2"
+                          )}>
+                            {paper.abstract}
+                          </p>
+
+                          {/* Paper Footer */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4 text-xs text-white/60">
+                              <span>{paper.authors?.[0]} et al.</span>
+                              <div className="flex items-center gap-1">
+                                <Star className="h-3 w-3" />
+                                <span>{paper.citations?.toLocaleString()}</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button variant="ghost" size="sm" className="text-white/60 hover:text-white h-7 text-xs">
+                                <ExternalLink className="h-3 w-3 mr-1" />
+                                PDF
+                              </Button>
+                              <Button variant="ghost" size="sm" className="text-white/60 hover:text-white h-7 text-xs">
+                                Cite
+                              </Button>
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-center">
+                      <div>
+                        <FileText className="h-12 w-12 text-white/40 mx-auto mb-4" />
+                        <p className="text-white/60 text-lg">No papers found</p>
+                        <p className="text-white/40">Try a different research question</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Sidebar - Research Context */}
+              <div className="lg:col-span-1 flex flex-col overflow-hidden">
+                <div className="flex-1 overflow-y-auto space-y-4">
+                  {/* Query Analysis */}
+                  {hasSearched && (
+                    <Card className="bg-white/[0.02] border-white/[0.08]">
+                      <CardContent className="p-4">
+                        <h3 className="text-sm font-semibold text-white mb-3">Research Analysis</h3>
+                        <div className="space-y-3">
+                          <div>
+                            <p className="text-xs text-white/60 mb-2">Query Understanding</p>
+                            <p className="text-white text-xs leading-relaxed line-clamp-3">
+                              {searchQuery}
+                            </p>
+                          </div>
+                          {results.length > 0 && (
+                            <div className="pt-3 border-t border-white/[0.08]">
+                              <p className="text-xs text-white/60 mb-2">Key Topics Found</p>
+                              <div className="flex flex-wrap gap-1">
+                                {Array.from(new Set(results.flatMap(p => p.topics).slice(0, 4))).map(topic => (
+                                  <Badge key={topic} variant="secondary" className="bg-indigo-500/20 text-indigo-300 text-xs">
+                                    {topic}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Selection Stats */}
+                  {selectedPapers.size > 0 && (
+                    <Card className="bg-gradient-to-br from-emerald-500/10 to-blue-500/10 border-emerald-500/20">
+                      <CardContent className="p-4">
+                        <h3 className="text-sm font-semibold text-white mb-3">Selection Stats</h3>
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-white/60">Papers Selected</span>
+                            <span className="text-white font-medium">{selectedPapers.size}</span>
+                          </div>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-white/60">Avg Quality Score</span>
+                            <span className="text-white font-medium">{getKnowledgebaseComposition().avgQuality.toFixed(1)}/10</span>
+                          </div>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-white/60">Year Range</span>
+                            <span className="text-white font-medium">
+                              {getKnowledgebaseComposition().yearRange ? 
+                                `${getKnowledgebaseComposition().yearRange?.min}-${getKnowledgebaseComposition().yearRange?.max}` : 
+                                'Various'
+                              }
+                            </span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        ) : (
+          /* Welcome State */
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.4 }}
+            className="text-center py-20"
+          >
+            <FileText className="h-16 w-16 text-white/40 mx-auto mb-6" />
+            <h2 className="text-2xl font-bold text-white mb-4">
+              Start Your Research Journey
+            </h2>
+            <p className="text-white/60 max-w-2xl mx-auto mb-8">
+              Ask any research question and I'll find the most relevant academic papers, 
+              analyze their quality, and help you build a comprehensive knowledge base.
+            </p>
+          </motion.div>
+        )}
       </div>
     </div>
   );
