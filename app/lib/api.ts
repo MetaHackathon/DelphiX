@@ -163,14 +163,19 @@ class ApiClient {
   }
 
   async sendChatMessage(sessionId: string, message: string, includeContext: boolean = true) {
-    return this.request('/api/chat/message', {
+    return this.request(`/api/chat/${sessionId}/messages`, {
       method: 'POST',
       body: JSON.stringify({
-        session_id: sessionId,
         message,
         include_context: includeContext,
       }),
     });
+  }
+
+  // Get recent chat sessions
+  async getChatSessions(limit: number = 10) {
+    const params = new URLSearchParams({ limit: limit.toString() });
+    return this.request(`/api/chat/sessions?${params}`);
   }
 
   // Stats

@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "~/components/auth-guard";
 import { apiClient } from "~/lib/api";
-import supabase from "~/lib/supabase.client";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
@@ -33,6 +32,25 @@ export const meta: MetaFunction = () => {
     { name: "description", content: "Your research dashboard with AI-powered insights" },
   ];
 };
+
+// Elegant minimalistic loader component
+function ElegantLoader({ text = "Loading..." }: { text?: string }) {
+  return (
+    <div className="min-h-screen bg-[#030303] pt-20 flex items-center justify-center">
+      <div className="text-center">
+        <div className="relative w-8 h-8 mx-auto mb-4">
+          <div className="absolute inset-0 border border-white/10 rounded-full"></div>
+          <motion.div 
+            className="absolute inset-0 border border-t-white/60 rounded-full"
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          />
+        </div>
+        <p className="text-white/50 text-sm font-medium">{text}</p>
+      </div>
+    </div>
+  );
+}
 
 function DashboardContent() {
   const navigate = useNavigate();
@@ -80,12 +98,12 @@ function DashboardContent() {
 
   useEffect(() => {
     if (user) {
-      // Check if data is fresh (less than 2 minutes old)
+      // Check if data is fresh (extended to 10 minutes for better persistence)
       const lastFetch = localStorage.getItem('dashboard-last-fetch');
       const now = Date.now();
-      const twoMinutes = 2 * 60 * 1000;
+      const tenMinutes = 10 * 60 * 1000; // Extended from 2 to 10 minutes
       
-      if (!lastFetch || (now - parseInt(lastFetch)) > twoMinutes) {
+      if (!lastFetch || (now - parseInt(lastFetch)) > tenMinutes) {
         loadUserData();
       }
     }
@@ -99,72 +117,77 @@ function DashboardContent() {
       
       // Set user ID for API client BEFORE making requests
       apiClient.setUserId(user.id);
-      
+      console.log('Loading dashboard data for user:', user.id);
       
       // Fetch dashboard data from backend
-      const dashboardData: any = await apiClient.getDashboard();
-      const newStats = dashboardData.quick_stats || {};
-      setStats(newStats);
-      localStorage.setItem('dashboard-stats', JSON.stringify(newStats));
-      // Optionally, set research_metrics from ai_insights or other fields
-      if (dashboardData.ai_insights && dashboardData.ai_insights.length > 0) {
-        setStats((prev: any) => ({
-          ...prev,
-          research_metrics: {
-            // Example: use the first insight for summary, or aggregate as needed
-            quality_score: 8,
-            quality_summary: dashboardData.ai_insights[0]?.insights?.[0] || "Initial research quality analysis",
-            trending_topics: [],
-            papers_this_week: 0,
-            active_hours: 0,
-            engagement_score: 0
-          }
-        }));
+      try {
+        const dashboardData: any = await apiClient.getDashboard();
+        const newStats = dashboardData.quick_stats || {};
+        setStats(newStats);
+        localStorage.setItem('dashboard-stats', JSON.stringify(newStats));
+        
+        // Optionally, set research_metrics from ai_insights or other fields
+        if (dashboardData.ai_insights && dashboardData.ai_insights.length > 0) {
+          setStats((prev: any) => ({
+            ...prev,
+            research_metrics: {
+              quality_score: 8,
+              quality_summary: dashboardData.ai_insights[0]?.insights?.[0] || "Initial research quality analysis",
+              trending_topics: [],
+              papers_this_week: 0,
+              active_hours: 0,
+              engagement_score: 0
+            }
+          }));
+        }
+      } catch (error) {
+        console.error('Failed to load dashboard stats:', error);
+        setStats({});
       }
-             // Get recent papers
-       try {
-         const papersData = await apiClient.getLibrary() as any[];
-         const recentPapersData = papersData.slice(0, 5);
-         setRecentPapers(recentPapersData);
-         localStorage.setItem('dashboard-papers', JSON.stringify(recentPapersData));
-       } catch (error) {
-         setRecentPapers([]);
-       }
-       // Get recent chat sessions
-       try {
-         const { data: chatsData } = await supabase
-           .from('chat_sessions')
-           .select('*')
-           .eq('user_id', user.id)
-           .order('updated_at', { ascending: false })
-           .limit(3);
-         const chatData = chatsData || [];
-         setRecentChats(chatData);
-         localStorage.setItem('dashboard-chats', JSON.stringify(chatData));
-       } catch (error) {
-         setRecentChats([]);
-       }
-       // Get knowledge bases
-       try {
-         const { data: kbData } = await supabase
-           .from('knowledge_bases')
-           .select('*')
-           .eq('user_id', user.id)
-           .order('created_at', { ascending: false })
-           .limit(3);
-         const kbDataArray = kbData || [];
-         setKnowledgeBases(kbDataArray);
-         localStorage.setItem('dashboard-kb', JSON.stringify(kbDataArray));
-       } catch (error) {
-         setKnowledgeBases([]);
-       }
-         } catch (error) {
-       setError('Failed to load dashboard data. Please try again later.');
-     } finally {
-       setLoading(false);
-       // Mark data as fresh
-       localStorage.setItem('dashboard-last-fetch', Date.now().toString());
-     }
+      
+      // Get recent papers
+      try {
+        const papersData = await apiClient.getLibrary() as any[];
+        const recentPapersData = papersData.slice(0, 5);
+        setRecentPapers(recentPapersData);
+        localStorage.setItem('dashboard-papers', JSON.stringify(recentPapersData));
+      } catch (error) {
+        console.error('Failed to load recent papers:', error);
+        setRecentPapers([]);
+      }
+      
+      // Get recent chat sessions
+      try {
+        const chatData = await apiClient.getChatSessions(3) || [];
+        setRecentChats(chatData);
+        localStorage.setItem('dashboard-chats', JSON.stringify(chatData));
+      } catch (error) {
+        console.error('Failed to load chat sessions:', error);
+        setRecentChats([]);
+      }
+      
+      // Get knowledge bases
+      try {
+        const kbDataArray = await apiClient.getKnowledgebases();
+        const limitedKbs = (kbDataArray || []).slice(0, 3);
+        setKnowledgeBases(limitedKbs);
+        localStorage.setItem('dashboard-kb', JSON.stringify(limitedKbs));
+      } catch (error) {
+        console.error('Failed to load knowledge bases:', error);
+        setKnowledgeBases([]);
+      }
+      
+    } catch (error) {
+      console.error('Dashboard loading error:', error);
+      setError('Failed to load dashboard data. Please try again later.');
+    } finally {
+      setLoading(false);
+      // Mark data as fresh with extended timestamp
+      localStorage.setItem('dashboard-last-fetch', Date.now().toString());
+      // Also set an expiration marker for better cache management
+      const expiration = Date.now() + (10 * 60 * 1000); // 10 minutes from now
+      localStorage.setItem('dashboard-cache-expires', expiration.toString());
+    }
   };
 
   const quickActions = [
@@ -207,14 +230,7 @@ function DashboardContent() {
 
   // Early return for loading state
   if (loading) {
-    return (
-      <div className="min-h-screen bg-[#030303] pt-20 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 text-indigo-500 animate-spin mx-auto mb-4" />
-          <p className="text-white/60">Loading your research dashboard...</p>
-        </div>
-      </div>
-    );
+    return <ElegantLoader text="Loading your research dashboard..." />;
   }
 
   // Early return for error state
