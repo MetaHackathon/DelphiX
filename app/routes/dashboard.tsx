@@ -3,6 +3,7 @@ import { useNavigate, Link } from "@remix-run/react";
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "~/components/auth-guard";
+import { ClientOnly } from "~/components/client-only";
 import { apiClient } from "~/lib/api";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "~/components/ui/card";
@@ -56,45 +57,32 @@ function DashboardContent() {
   const navigate = useNavigate();
   const { user } = useAuth();
   
-  // State
-  const [stats, setStats] = useState<any>(() => {
-    if (typeof window !== 'undefined') {
-      const cached = localStorage.getItem('dashboard-stats');
-      return cached ? JSON.parse(cached) : {};
-    }
-    return {};
-  });
-  const [recentPapers, setRecentPapers] = useState<any[]>(() => {
-    if (typeof window !== 'undefined') {
-      const cached = localStorage.getItem('dashboard-papers');
-      return cached ? JSON.parse(cached) : [];
-    }
-    return [];
-  });
-  const [recentChats, setRecentChats] = useState<any[]>(() => {
-    if (typeof window !== 'undefined') {
-      const cached = localStorage.getItem('dashboard-chats');
-      return cached ? JSON.parse(cached) : [];
-    }
-    return [];
-  });
-  const [knowledgeBases, setKnowledgeBases] = useState<any[]>(() => {
-    if (typeof window !== 'undefined') {
-      const cached = localStorage.getItem('dashboard-kb');
-      return cached ? JSON.parse(cached) : [];
-    }
-    return [];
-  });
-  const [loading, setLoading] = useState(() => {
-    // Only show loading if we have no cached data
-    if (typeof window !== 'undefined') {
-      const hasStats = localStorage.getItem('dashboard-stats');
-      const hasPapers = localStorage.getItem('dashboard-papers');
-      return !hasStats && !hasPapers;
-    }
-    return true;
-  });
+  // State - Initialize with empty values to prevent hydration mismatches
+  const [stats, setStats] = useState<any>({});
+  const [recentPapers, setRecentPapers] = useState<any[]>([]);
+  const [recentChats, setRecentChats] = useState<any[]>([]);
+  const [knowledgeBases, setKnowledgeBases] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Load cached data after hydration
+  useEffect(() => {
+    // Load cached data from localStorage
+    const cachedStats = localStorage.getItem('dashboard-stats');
+    const cachedPapers = localStorage.getItem('dashboard-papers');
+    const cachedChats = localStorage.getItem('dashboard-chats');
+    const cachedKb = localStorage.getItem('dashboard-kb');
+    
+    if (cachedStats) setStats(JSON.parse(cachedStats));
+    if (cachedPapers) setRecentPapers(JSON.parse(cachedPapers));
+    if (cachedChats) setRecentChats(JSON.parse(cachedChats));
+    if (cachedKb) setKnowledgeBases(JSON.parse(cachedKb));
+    
+    // If we have some cached data, don't show loading
+    if (cachedStats && cachedPapers) {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -676,5 +664,9 @@ function DashboardContent() {
 }
 
 export default function Dashboard() {
-  return <DashboardContent />;
+  return (
+    <ClientOnly fallback={<ElegantLoader text="Loading your research dashboard..." />}>
+      <DashboardContent />
+    </ClientOnly>
+  );
 } 

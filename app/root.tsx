@@ -12,8 +12,6 @@ import { LandingNav } from "~/components/ui/landing-nav";
 import { AppNav } from "~/components/ui/app-nav";
 import { useAuth } from "~/components/auth-guard";
 import { getUser, getUserProfile } from "~/lib/auth.server";
-import { setCurrentUser } from "~/lib/api";
-import { useEffect } from "react";
 import stylesheet from "~/tailwind.css?url";
 
 export const links: LinksFunction = () => [
@@ -78,11 +76,6 @@ function NavigationWrapper() {
 }
 
 export default function App() {
-  // Set current user for API calls
-  useEffect(() => {
-    setCurrentUser();
-  }, []);
-
   return (
     <>
       <NavigationWrapper />

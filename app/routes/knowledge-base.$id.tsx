@@ -34,6 +34,7 @@ import { cn } from '~/lib/utils';
 import { AuthGuard, useAuth } from "~/components/auth-guard";
 import { apiClient } from "~/lib/api";
 import { toast, useToast } from "../components/ui/use-toast";
+import { motion } from "framer-motion";
 
 // Add icon mapping
 const iconMap: Record<string, LucideIcon> = {
@@ -64,6 +65,41 @@ export const meta: MetaFunction = () => {
     { title: "Knowledge Base Viewer - DelphiX" },
     { name: "description", content: "Explore papers and discover deep connections in your knowledge base" },
   ];
+};
+
+// Elegant minimalistic loader component matching dashboard
+function ElegantLoader({ text = "Loading knowledge base..." }: { text?: string }) {
+  return (
+    <div className="min-h-screen bg-[#030303] pt-20 flex items-center justify-center">
+      <div className="text-center">
+        <div className="relative w-8 h-8 mx-auto mb-4">
+          <div className="absolute inset-0 border border-white/10 rounded-full"></div>
+          <motion.div 
+            className="absolute inset-0 border border-t-white/60 rounded-full"
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          />
+        </div>
+        <p className="text-white/50 text-sm font-medium">{text}</p>
+      </div>
+    </div>
+  );
+}
+
+// Add proper caching for better performance
+export const loader = async ({ params, request }: LoaderFunctionArgs) => {
+  const { id } = params;
+  
+  if (!id) {
+    throw new Response("Knowledge base ID required", { status: 400 });
+  }
+
+  // Set cache headers for static data
+  const headers = new Headers();
+  headers.set("Cache-Control", "public, max-age=300, stale-while-revalidate=600"); // 5 min cache, 10 min stale
+  headers.set("Vary", "Cookie"); // Vary by user authentication
+
+  return json({ id }, { headers });
 };
 
 // Real data interfaces
@@ -1049,6 +1085,25 @@ function KnowledgeBaseViewerContent() {
   const [activeTab, setActiveTab] = useState("papers");
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'network'>('grid');
 
+  // Load cached data after hydration
+  useEffect(() => {
+    if (!id) return;
+    
+    // Load cached knowledge base data
+    const cachedKB = localStorage.getItem(`kb-${id}`);
+    const cachedConnections = localStorage.getItem(`kb-${id}-connections`);
+    const cachedInsights = localStorage.getItem(`kb-${id}-insights`);
+    const cachedAnalytics = localStorage.getItem(`kb-${id}-analytics`);
+    
+    if (cachedKB) {
+      setKnowledgeBase(JSON.parse(cachedKB));
+      setLoading(false);
+    }
+    if (cachedConnections) setConnectionsData(JSON.parse(cachedConnections));
+    if (cachedInsights) setInsightsData(JSON.parse(cachedInsights));
+    if (cachedAnalytics) setAnalyticsData(JSON.parse(cachedAnalytics));
+  }, [id]);
+
   // Generate analysis function
   const generateAnalysis = useCallback(async () => {
     if (!id || generatingAnalysis) return;
@@ -1056,9 +1111,18 @@ function KnowledgeBaseViewerContent() {
     setGeneratingAnalysis(true);
     try {
       const result = await apiClient.generateKnowledgebaseAnalysis(id) as any;
-      if (result?.connections) setConnectionsData(result.connections);
-      if (result?.insights) setInsightsData(result.insights);
-      if (result?.analytics) setAnalyticsData(result.analytics);
+      if (result?.connections) {
+        setConnectionsData(result.connections);
+        localStorage.setItem(`kb-${id}-connections`, JSON.stringify(result.connections));
+      }
+      if (result?.insights) {
+        setInsightsData(result.insights);
+        localStorage.setItem(`kb-${id}-insights`, JSON.stringify(result.insights));
+      }
+      if (result?.analytics) {
+        setAnalyticsData(result.analytics);
+        localStorage.setItem(`kb-${id}-analytics`, JSON.stringify(result.analytics));
+      }
     } catch (error) {
       console.error('Error generating analysis:', error);
     } finally {
@@ -1066,19 +1130,29 @@ function KnowledgeBaseViewerContent() {
     }
   }, [id, generatingAnalysis]);
 
-  // Load knowledge base data
+  // Load knowledge base data with caching
   useEffect(() => {
     const loadKnowledgeBaseData = async () => {
       if (!id || !user) return;
 
+      // Check if data is fresh (10 minutes cache)
+      const lastFetch = localStorage.getItem(`kb-${id}-last-fetch`);
+      const now = Date.now();
+      const tenMinutes = 10 * 60 * 1000;
+      
+      if (lastFetch && (now - parseInt(lastFetch)) < tenMinutes && knowledgeBase) {
+        console.log('Using cached knowledge base data');
+        return;
+      }
+
       try {
         setLoading(true);
         
-        // Load KB details
-        const kbResponse = await apiClient.getKnowledgebase(id) as KnowledgeBaseData;
-        
-        // Load papers in this KB
-        const papersResponse = await apiClient.getKnowledgebasePapers(id) as PaperData[];
+        // Load KB details and papers in parallel
+        const [kbResponse, papersResponse] = await Promise.all([
+          apiClient.getKnowledgebase(id) as Promise<KnowledgeBaseData>,
+          apiClient.getKnowledgebasePapers(id) as Promise<PaperData[]>
+        ]);
         
         // Transform to UI format
         const transformedPapers: Paper[] = papersResponse.map((paper) => ({
@@ -1112,73 +1186,71 @@ function KnowledgeBaseViewerContent() {
 
         setKnowledgeBase(kb);
         
+        // Cache the knowledge base data
+        localStorage.setItem(`kb-${id}`, JSON.stringify(kb));
+        localStorage.setItem(`kb-${id}-last-fetch`, now.toString());
+        
       } catch (error) {
         console.error('Error loading knowledge base:', error);
+        toast({
+          title: "Error loading knowledge base",
+          description: "Failed to load knowledge base data. Please try again.",
+          variant: "destructive",
+        });
       } finally {
         setLoading(false);
       }
     };
 
     loadKnowledgeBaseData();
-  }, [id, user]);
+  }, [id, user, toast, knowledgeBase]);
 
-  // Load analysis data based on active tab
+  // Load analysis data based on active tab with improved caching
   useEffect(() => {
     if (!id || !user || !activeTab) return;
     
     const loadAnalysisData = async () => {
+      // Check localStorage for cached data first
+      const cachedData = localStorage.getItem(`kb-${id}-${activeTab}`);
+      const lastFetch = localStorage.getItem(`kb-${id}-${activeTab}-last-fetch`);
+      const now = Date.now();
+      const tenMinutes = 10 * 60 * 1000;
+      
+      // Use cached data if it's fresh
+      if (cachedData && lastFetch && (now - parseInt(lastFetch)) < tenMinutes) {
+        console.log(`Using cached ${activeTab} data`);
+        const data = JSON.parse(cachedData);
+        switch (activeTab) {
+          case 'connections':
+            if (!connectionsData) setConnectionsData(data);
+            break;
+          case 'insights':
+            if (!insightsData) setInsightsData(data);
+            break;
+          case 'analytics':
+            if (!analyticsData) setAnalyticsData(data);
+            break;
+        }
+        return;
+      }
+
+      // Load fresh data if cache is stale or missing
       setAnalysisLoading(true);
       try {
         if (activeTab === "connections" && !connectionsData) {
           console.log('Fetching connections data for KB:', id);
           const data = await apiClient.getKnowledgebaseConnections(id);
-          console.log('Raw connections data from backend:', JSON.stringify(data, null, 2));
           
           if (!data) {
             console.log('No connections data, attempting to generate...');
-            try {
-              await generateAnalysis();
-            } catch (err) {
-              console.error('Error generating analysis:', err);
-              if (!knowledgeBase) {
-                setAnalysisLoading(false);
-                return;
-              }
-              const defaultConnections: ConnectionsData = {
-                nodes: knowledgeBase.papers.map(p => ({
-                  id: p.id,
-                  title: p.title,
-                  authors: p.authors,
-                  year: p.year,
-                  citations: p.citations,
-                  qualityScore: p.qualityScore,
-                  x: 0,
-                  y: 0,
-                  connections: 0
-                })),
-                edges: knowledgeBase.papers.length > 1 ? [{
-                  id: 'default-edge',
-                  source: knowledgeBase.papers[0].id,
-                  target: knowledgeBase.papers[1].id,
-                  strength: 0.5,
-                  explanation: 'Auto-generated default connection',
-                  style: { stroke: '#6366f1', strokeWidth: 2, strokeOpacity: 0.6 },
-                  animated: false
-                }] : [],
-                stats: {
-                  totalNodes: knowledgeBase.papers.length,
-                  totalConnections: knowledgeBase.papers.length > 1 ? 1 : 0,
-                  avgDegree: knowledgeBase.papers.length > 1 ? 1 / knowledgeBase.papers.length : 0
-                }
-              };
-              setConnectionsData(defaultConnections);
-            }
+            await generateAnalysis();
           } else {
-            console.log('Setting connections data:', data);
             setConnectionsData(data as ConnectionsData);
+            localStorage.setItem(`kb-${id}-connections`, JSON.stringify(data));
+            localStorage.setItem(`kb-${id}-connections-last-fetch`, now.toString());
+
             // Update papers with connections data
             if (knowledgeBase && data) {
-              console.log('Updating papers with connections');
               const updatedPapers = knowledgeBase.papers.map(paper => {
                 const connections = (data as ConnectionsData).edges
                   .filter(edge => edge.source === paper.id || edge.target === paper.id)
@@ -1192,16 +1264,12 @@ function KnowledgeBaseViewerContent() {
                     return acc;
                   }, {} as Record<string, string>);
 
-                console.log(`Paper ${paper.id} connections:`, connections);
-                console.log(`Paper ${paper.id} explanations:`, connectionExplanations);
-
                 return {
                   ...paper,
                   connections,
                   connectionExplanations
                 };
               });
-              console.log('Setting updated knowledge base with connections');
               setKnowledgeBase({
                 ...knowledgeBase,
                 papers: updatedPapers
@@ -1216,6 +1284,8 @@ function KnowledgeBaseViewerContent() {
             await generateAnalysis();
           } else {
             setInsightsData(data as InsightsData);
+            localStorage.setItem(`kb-${id}-insights`, JSON.stringify(data));
+            localStorage.setItem(`kb-${id}-insights-last-fetch`, now.toString());
           }
         }
         
@@ -1225,17 +1295,26 @@ function KnowledgeBaseViewerContent() {
             await generateAnalysis();
           } else {
             setAnalyticsData(data as AnalyticsData);
+            localStorage.setItem(`kb-${id}-analytics`, JSON.stringify(data));
+            localStorage.setItem(`kb-${id}-analytics-last-fetch`, now.toString());
           }
         }
       } catch (error) {
         console.error('Error loading analysis data:', error);
+        toast({
+          title: "Error loading analysis",
+          description: "Failed to load analysis data. Please try again.",
+          variant: "destructive",
+        });
       } finally {
         setAnalysisLoading(false);
       }
     };
     
-    loadAnalysisData();
-  }, [activeTab, id, user, generateAnalysis]);
+    // Debounce the loading to prevent rapid successive calls
+    const timeoutId = setTimeout(loadAnalysisData, 100);
+    return () => clearTimeout(timeoutId);
+  }, [activeTab, id, user, generateAnalysis, knowledgeBase, connectionsData, insightsData, analyticsData, toast]);
 
   // Derived state with useMemo
   const filteredPapers = useMemo(() => {
@@ -1298,14 +1377,7 @@ function KnowledgeBaseViewerContent() {
 
   // Early return if loading
   if (loading) {
-    return (
-      <div className="min-h-screen bg-[#030303] pt-20 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 text-indigo-500 animate-spin mx-auto mb-4" />
-          <p className="text-white/60">Loading knowledge base...</p>
-        </div>
-      </div>
-    );
+    return <ElegantLoader text="Loading your knowledge base..." />;
   }
 
   if (!knowledgeBase) {
@@ -1424,59 +1496,90 @@ function KnowledgeBaseViewerContent() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.1 }}
-                className="mb-6"
+                className="mb-8"
               >
-                <div className="flex gap-4 items-center">
-                  <div className="flex-1 relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/40 h-4 w-4" />
+                <div className="flex items-center justify-between gap-6">
+                  {/* Search Bar */}
+                  <div className="relative flex-1 max-w-lg">
+                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-white/40 h-4 w-4" />
                     <Input
                       placeholder="Search papers by title, author, or content..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className={cn(
-                        "pl-10",
-                        "bg-white/[0.05] border-white/[0.1] text-white placeholder:text-white/40",
-                        "focus:bg-white/[0.08] focus:border-white/[0.2]"
-                      )}
+                      className="pl-12 pr-4 py-3 bg-white/[0.06] border border-white/[0.12] text-white placeholder:text-white/40 focus:bg-white/[0.1] focus:border-white/[0.25] rounded-xl transition-all duration-200 shadow-lg backdrop-blur-sm"
                     />
+                    {searchQuery && (
+                      <button
+                        onClick={() => setSearchQuery('')}
+                        className="absolute right-4 top-1/2 transform -translate-y-1/2 text-white/40 hover:text-white/70 transition-colors"
+                      >
+                        ×
+                      </button>
+                    )}
                   </div>
                   
-                  <select
-                    value={filterTopic}
-                    onChange={(e) => setFilterTopic(e.target.value)}
-                    className="bg-white/[0.05] border border-white/[0.1] text-white rounded-md px-3 py-2 text-sm"
-                  >
-                    <option value="">All Topics</option>
-                    {allTopics.map(topic => (
-                      <option key={topic} value={topic}>{topic}</option>
-                    ))}
-                  </select>
+                  <div className="flex items-center gap-3">
+                    {/* Topic Filter */}
+                    <div className="relative">
+                      <select
+                        value={filterTopic}
+                        onChange={(e) => setFilterTopic(e.target.value)}
+                        className="appearance-none bg-white/[0.06] border border-white/[0.12] text-white text-sm rounded-xl px-4 py-3 pr-10 focus:outline-none focus:bg-white/[0.1] focus:border-white/[0.25] transition-all duration-200 shadow-lg backdrop-blur-sm cursor-pointer hover:bg-white/[0.08]"
+                      >
+                        <option value="" className="bg-gray-900 text-white">All Topics</option>
+                        {allTopics.map(topic => (
+                          <option key={topic} value={topic} className="bg-gray-900 text-white">{topic}</option>
+                        ))}
+                      </select>
+                      <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                        <svg className="w-4 h-4 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
 
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                      size="sm"
-                      onClick={() => setViewMode('grid')}
-                      className="h-9 w-9 p-0"
-                    >
-                      <Grid3X3 className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant={viewMode === 'list' ? 'default' : 'ghost'}
-                      size="sm"
-                      onClick={() => setViewMode('list')}
-                      className="h-9 w-9 p-0"
-                    >
-                      <List className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant={viewMode === 'network' ? 'default' : 'ghost'}
-                      size="sm"
-                      onClick={() => setViewMode('network')}
-                      className="h-9 w-9 p-0"
-                    >
-                      <Network className="h-4 w-4" />
-                    </Button>
+                    {/* View Mode Toggle */}
+                    <div className="flex items-center bg-white/[0.06] border border-white/[0.12] rounded-xl p-1 shadow-lg backdrop-blur-sm">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setViewMode('grid')}
+                        className={cn(
+                          "px-3 py-2 rounded-lg transition-all duration-200",
+                          viewMode === 'grid' 
+                            ? "bg-white/[0.15] text-white shadow-md" 
+                            : "text-white/60 hover:text-white hover:bg-white/[0.08]"
+                        )}
+                      >
+                        <Grid3X3 className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setViewMode('list')}
+                        className={cn(
+                          "px-3 py-2 rounded-lg transition-all duration-200",
+                          viewMode === 'list' 
+                            ? "bg-white/[0.15] text-white shadow-md" 
+                            : "text-white/60 hover:text-white hover:bg-white/[0.08]"
+                        )}
+                      >
+                        <List className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setViewMode('network')}
+                        className={cn(
+                          "px-3 py-2 rounded-lg transition-all duration-200",
+                          viewMode === 'network' 
+                            ? "bg-white/[0.15] text-white shadow-md" 
+                            : "text-white/60 hover:text-white hover:bg-white/[0.08]"
+                        )}
+                      >
+                        <Network className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </motion.div>
@@ -1488,116 +1591,208 @@ function KnowledgeBaseViewerContent() {
                 transition={{ duration: 0.6, delay: 0.2 }}
               >
                 {viewMode === 'grid' && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     {filteredPapers.map((paper) => (
-                      <Card
-                        key={paper.id}
-                        className={cn(
-                          "bg-white/[0.02] border-white/[0.08] hover:bg-white/[0.04] transition-all duration-300 cursor-pointer group",
-                          selectedPaper && selectedPaper === paper.id && "ring-2 ring-indigo-500 bg-indigo-500/5"
-                        )}
-                        onClick={() => handlePaperClick(paper)}
-                      >
-                        <CardHeader className="pb-3">
-                          <div className="flex items-start justify-between gap-2">
-                            <CardTitle className="text-white text-base font-semibold line-clamp-2 group-hover:text-indigo-300 transition-colors">
-                              {paper.title}
-                            </CardTitle>
-                            <Badge className={cn("text-xs", getQualityColor(paper.qualityScore))}>
-                              {paper.qualityScore}
-                            </Badge>
-                          </div>
-                          <CardDescription className="text-white/60 text-sm">
-                            {paper.authors.slice(0, 2).join(", ")}{paper.authors.length > 2 ? ` +${paper.authors.length - 2}` : ""}
-                          </CardDescription>
-                        </CardHeader>
-                        
-                        <CardContent className="pt-0">
-                          <div className="space-y-3">
-                            <p className="text-white/70 text-sm line-clamp-3">
-                              {paper.abstract}
-                            </p>
+                      <div key={paper.id} className="h-80">
+                        <Card
+                          className={cn(
+                            "relative bg-gradient-to-br from-white/[0.08] to-white/[0.03] border border-white/[0.12] hover:border-white/[0.2] transition-all duration-300 hover:scale-[1.02] cursor-pointer group h-full backdrop-blur-xl overflow-hidden flex flex-col",
+                            selectedPaper && selectedPaper === paper.id && "ring-2 ring-indigo-400 bg-indigo-500/10"
+                          )}
+                          onClick={() => handlePaperClick(paper)}
+                        >
+                          {/* Document Preview Area - Fixed Height */}
+                          <div className="relative h-32 bg-gradient-to-br from-white/[0.05] to-white/[0.02] border-b border-white/[0.08] overflow-hidden flex-shrink-0">
+                            {/* Simulated document content */}
+                            <div className="absolute inset-0 p-3">
+                              <div className="relative h-full">
+                                {/* Background document */}
+                                <div className="absolute top-1 left-2 right-1 h-full bg-white/[0.03] rounded border border-white/[0.06] transform rotate-1"></div>
+                                
+                                {/* Main document preview */}
+                                <div className="relative h-full bg-white/[0.06] rounded border border-white/[0.1] p-2.5 overflow-hidden">
+                                  {/* Simulated abstract content */}
+                                  <div className="space-y-1.5">
+                                    <div className="h-1.5 bg-white/[0.15] rounded w-3/4"></div>
+                                    <div className="h-1 bg-white/[0.08] rounded w-full"></div>
+                                    <div className="h-1 bg-white/[0.08] rounded w-5/6"></div>
+                                    <div className="h-1 bg-white/[0.08] rounded w-2/3"></div>
+                                    <div className="mt-2 flex gap-1">
+                                      {paper.topics.slice(0, 2).map((topic, i) => (
+                                        <div key={i} className="h-1 bg-white/[0.12] rounded w-8"></div>
+                                      ))}
+                                    </div>
+                                    <div className="h-1 bg-white/[0.06] rounded w-4/5"></div>
+                                    <div className="h-1 bg-white/[0.06] rounded w-3/5"></div>
+                                  </div>
+                                  
+                                  {/* Quality score overlay */}
+                                  <div className="absolute bottom-1.5 right-1.5 bg-white/[0.15] backdrop-blur-sm rounded px-1.5 py-0.5 border border-white/[0.1]">
+                                    <span className="text-xs font-medium text-white/80">{paper.qualityScore}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
                             
-                            <div className="flex items-center justify-between text-xs text-white/60">
-                              <span>{paper.venue} {paper.year}</span>
+                            {/* Citation indicator */}
+                            <div className="absolute top-2 right-2">
+                              <div className="w-2 h-2 bg-white/30 rounded-full border border-white/20"></div>
+                            </div>
+                          </div>
+
+                          {/* Content Area - Flexible Height */}
+                          <CardContent className="p-4 flex-1 flex flex-col">
+                            {/* Header - Fixed Height */}
+                            <div className="mb-3">
+                              <div className="flex items-start justify-between mb-2">
+                                <div className="flex-1 min-w-0">
+                                  <h3 className="text-base font-semibold text-white leading-tight group-hover:text-white/95 line-clamp-2 min-h-[2.5rem]">
+                                    {paper.title}
+                                  </h3>
+                                </div>
+                                <div className="text-xs text-white/30 font-mono ml-2 flex-shrink-0">
+                                  {paper.year}
+                                </div>
+                              </div>
+                              <p className="text-white/50 text-xs leading-relaxed line-clamp-2 font-light min-h-[2rem]">
+                                {paper.authors.slice(0, 2).join(", ")}{paper.authors.length > 2 ? ` +${paper.authors.length - 2}` : ""} • {paper.venue}
+                              </p>
+                            </div>
+
+                            {/* Quick stats - Fixed Height */}
+                            <div className="flex items-center gap-3 text-xs text-white/40 mb-3">
                               <div className="flex items-center gap-1">
                                 <Star className="h-3 w-3" />
                                 <span>{paper.citations.toLocaleString()}</span>
                               </div>
+                              {paper.connections.length > 0 && (
+                                <div className="flex items-center gap-1">
+                                  <GitBranch className="h-3 w-3" />
+                                  <span>{paper.connections.length}</span>
+                                </div>
+                              )}
+                              <Badge 
+                                className={cn(
+                                  "text-xs px-1.5 py-0.5",
+                                  getQualityColor(paper.qualityScore),
+                                  "border-0"
+                                )}
+                              >
+                                {paper.qualityScore}
+                              </Badge>
                             </div>
-                            
-                            <div className="flex flex-wrap gap-1">
-                              {paper.topics.slice(0, 3).map(topic => (
-                                <Badge key={topic} variant="outline" className="text-xs border-white/[0.1] text-white/60">
-                                  {topic}
-                                </Badge>
-                              ))}
-                            </div>
-                            
-                            {paper.connections.length > 0 && (
-                              <div className="flex items-center gap-1 text-xs text-white/60">
-                                <GitBranch className="h-3 w-3" />
-                                <span>{paper.connections.length} connections</span>
+
+                            {/* Topics - Fixed Height at bottom */}
+                            <div className="mt-auto">
+                              <div className="flex flex-wrap gap-1 min-h-[1.5rem]">
+                                {paper.topics.slice(0, 3).map((topic) => (
+                                  <span 
+                                    key={topic}
+                                    className="text-xs text-white/50 bg-white/[0.05] px-2 py-0.5 rounded border border-white/[0.08] truncate max-w-[80px]"
+                                    title={topic}
+                                  >
+                                    {topic.length > 10 ? `${topic.substring(0, 10)}...` : topic}
+                                  </span>
+                                ))}
+                                {paper.topics.length > 3 && (
+                                  <span className="text-xs text-white/40 bg-white/[0.03] px-2 py-0.5 rounded border border-white/[0.06]">
+                                    +{paper.topics.length - 3}
+                                  </span>
+                                )}
                               </div>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
+                            </div>
+                          </CardContent>
+
+                          {/* Hover overlay */}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+                        </Card>
+                      </div>
                     ))}
                   </div>
                 )}
 
                 {viewMode === 'list' && (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {filteredPapers.map((paper) => (
                       <Card
                         key={paper.id}
                         className={cn(
-                          "bg-white/[0.02] border-white/[0.08] hover:bg-white/[0.04] transition-all duration-300 cursor-pointer",
-                          selectedPaper && selectedPaper === paper.id && "ring-2 ring-indigo-500 bg-indigo-500/5"
+                          "bg-gradient-to-r from-white/[0.06] to-white/[0.02] border border-white/[0.1] hover:border-white/[0.16] transition-all duration-200 hover:scale-[1.01] cursor-pointer group backdrop-blur-xl overflow-hidden",
+                          selectedPaper && selectedPaper === paper.id && "ring-2 ring-indigo-400 bg-indigo-500/10"
                         )}
                         onClick={() => handlePaperClick(paper)}
                       >
-                        <CardContent className="p-6">
-                          <div className="flex gap-4">
-                            <div className="flex-1">
-                              <div className="flex items-start justify-between mb-2">
-                                <h3 className="text-white text-lg font-semibold hover:text-indigo-300 transition-colors">
-                                  {paper.title}
-                                </h3>
-                                <Badge className={cn("text-xs", getQualityColor(paper.qualityScore))}>
-                                  {paper.qualityScore}
-                                </Badge>
+                        <CardContent className="p-0">
+                          <div className="flex">
+                            {/* Mini Document Preview */}
+                            <div className="relative w-24 h-16 bg-gradient-to-br from-white/[0.08] to-white/[0.03] border-r border-white/[0.08] flex-shrink-0">
+                              <div className="absolute inset-1">
+                                <div className="relative h-full bg-white/[0.06] rounded border border-white/[0.08] p-1 overflow-hidden">
+                                  {/* Mini document content */}
+                                  <div className="space-y-0.5">
+                                    <div className="h-0.5 bg-white/[0.12] rounded w-3/4"></div>
+                                    <div className="h-0.5 bg-white/[0.06] rounded w-full"></div>
+                                    <div className="h-0.5 bg-white/[0.06] rounded w-2/3"></div>
+                                    <div className="mt-1 flex gap-0.5">
+                                      {paper.topics.slice(0, 2).map((topic, i) => (
+                                        <div key={i} className="h-0.5 bg-white/[0.1] rounded w-3"></div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Quality score */}
+                                  <div className="absolute bottom-0.5 right-0.5 bg-white/[0.15] rounded px-1 py-0.5">
+                                    <span className="text-xs font-medium text-white/70">{paper.qualityScore}</span>
+                                  </div>
+                                </div>
                               </div>
                               
-                              <p className="text-white/60 text-sm mb-2">
-                                {paper.authors.join(", ")} • {paper.venue} {paper.year}
-                              </p>
-                              
-                              <p className="text-white/70 text-sm mb-3 line-clamp-2">
-                                {paper.abstract}
-                              </p>
-                              
-                              <div className="flex items-center justify-between">
-                                <div className="flex flex-wrap gap-1">
-                                  {paper.topics.slice(0, 4).map(topic => (
-                                    <Badge key={topic} variant="outline" className="text-xs border-white/[0.1] text-white/60">
-                                      {topic}
-                                    </Badge>
-                                  ))}
-                                </div>
-                                
-                                <div className="flex items-center gap-4 text-xs text-white/60">
-                                  <div className="flex items-center gap-1">
-                                    <Star className="h-3 w-3" />
-                                    <span>{paper.citations.toLocaleString()}</span>
-                                  </div>
-                                  {paper.connections.length > 0 && (
-                                    <div className="flex items-center gap-1">
-                                      <GitBranch className="h-3 w-3" />
-                                      <span>{paper.connections.length} connections</span>
+                              {/* Citation dot */}
+                              <div className="absolute top-1 right-1">
+                                <div className="w-1.5 h-1.5 bg-white/40 rounded-full"></div>
+                              </div>
+                            </div>
+
+                            {/* Content */}
+                            <div className="flex-1 p-4">
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-start justify-between mb-1">
+                                    <h3 className="text-white font-semibold text-base group-hover:text-white/95 line-clamp-1 flex-1 mr-3">
+                                      {paper.title}
+                                    </h3>
+                                    <div className="text-xs text-white/30 font-mono flex-shrink-0">
+                                      {paper.year}
                                     </div>
-                                  )}
+                                  </div>
+                                  <p className="text-white/50 text-sm mb-2 font-light">
+                                    {paper.authors.slice(0, 3).join(", ")}{paper.authors.length > 3 ? ` +${paper.authors.length - 3}` : ""} • {paper.venue}
+                                  </p>
+                                  <p className="text-white/60 text-sm mb-3 line-clamp-2 leading-relaxed">
+                                    {paper.abstract}
+                                  </p>
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex flex-wrap gap-1">
+                                      {paper.topics.slice(0, 4).map(topic => (
+                                        <span key={topic} className="text-xs text-white/50 bg-white/[0.05] px-2 py-0.5 rounded border border-white/[0.08] truncate max-w-[100px]" title={topic}>
+                                          {topic.length > 12 ? `${topic.substring(0, 12)}...` : topic}
+                                        </span>
+                                      ))}
+                                    </div>
+                                    
+                                    <div className="flex items-center gap-4 text-xs text-white/40 ml-4">
+                                      <div className="flex items-center gap-1">
+                                        <Star className="h-3 w-3" />
+                                        <span>{paper.citations.toLocaleString()}</span>
+                                      </div>
+                                      {paper.connections.length > 0 && (
+                                        <div className="flex items-center gap-1">
+                                          <GitBranch className="h-3 w-3" />
+                                          <span>{paper.connections.length}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
                             </div>

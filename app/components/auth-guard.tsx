@@ -70,8 +70,15 @@ export function AuthGuard({ children, fallback }: AuthGuardProps) {
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    
     const getInitialSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user ?? null);
@@ -88,7 +95,12 @@ export function useAuth() {
     );
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [hydrated]);
+
+  // Return loading state during hydration
+  if (!hydrated) {
+    return { user: null, loading: true };
+  }
 
   return { user, loading };
 } 

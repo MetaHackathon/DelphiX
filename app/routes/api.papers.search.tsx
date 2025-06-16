@@ -6,7 +6,7 @@ const DATA_ENGINE_URL = process.env.DATA_ENGINE_URL || 'http://localhost:8080';
 
 export const action: ActionFunction = async ({ request }) => {
   try {
-    const supabase = createClient(request);
+    const supabase = createClient();
     
     // Get the current user
     const { data: { user }, error: userError } = await supabase.auth.getUser();

@@ -19,12 +19,18 @@ class ApiClient {
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     
+    // Only try to ensure user ID on client-side
+    if (typeof window !== 'undefined' && !this.userId) {
+      console.log('No user ID set, attempting to get from session...');
+      await ensureUserIdSet();
+    }
+    
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
       ...options.headers,
     };
 
-    // Add user ID header (simplified auth)
+    // Add user ID header if available
     if (this.userId) {
       (headers as any)['X-User-ID'] = this.userId;
       console.log(`Making API request to ${endpoint} with user ID: ${this.userId}`);
@@ -42,6 +48,25 @@ class ApiClient {
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`API request failed: ${response.status} ${response.statusText}`, errorText);
+      
+      // If we get a 403, try refreshing the user ID once
+      if (response.status === 403 && typeof window !== 'undefined') {
+        console.log('Got 403, trying to refresh user ID...');
+        this.userId = null; // Clear current user ID
+        const freshUserId = await ensureUserIdSet();
+        if (freshUserId && freshUserId !== (headers as any)['X-User-ID']) {
+          console.log('Retrying request with fresh user ID...');
+          (headers as any)['X-User-ID'] = freshUserId;
+          const retryResponse = await fetch(url, {
+            headers,
+            ...options,
+          });
+          if (retryResponse.ok) {
+            return retryResponse.json();
+          }
+        }
+      }
+      
       throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
@@ -125,9 +150,20 @@ class ApiClient {
   }
 
   async uploadPaper(formData: FormData) {
+    // Ensure user ID is set for upload
+    if (!this.userId && typeof window !== 'undefined') {
+      await ensureUserIdSet();
+    }
+
+    const headers: HeadersInit = {};
+    if (this.userId) {
+      (headers as any)['X-User-ID'] = this.userId;
+    }
+
     const response = await fetch(`${this.baseUrl}/api/library/upload`, {
       method: 'POST',
       body: formData,
+      headers,
     });
     
     if (!response.ok) {
@@ -415,27 +451,39 @@ class ApiClient {
 // Export singleton instance
 export const apiClient = new ApiClient();
 
-// Simple function to get current user ID and set it
-export async function setCurrentUser() {
+// Get current user ID and ensure it's set before API calls
+export async function ensureUserIdSet(): Promise<string | null> {
   try {
     if (typeof window !== 'undefined') {
-      const { createClient } = await import('@supabase/supabase-js');
-      const supabase = createClient(
-        import.meta.env.VITE_SUPABASE_URL!,
-        import.meta.env.VITE_SUPABASE_ANON_KEY!
-      );
+      // Use the existing singleton client instead of creating a new one
+      const { default: supabase } = await import('~/lib/supabase.client');
       
-      const { data: { session } } = await supabase.auth.getSession();
+      // Get fresh session data
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.error('Error getting session:', error);
+        return null;
+      }
       
       if (session?.user?.id) {
         apiClient.setUserId(session.user.id);
-        console.log('Set user ID:', session.user.id);
+        console.log('Ensured user ID is set:', session.user.id);
+        return session.user.id;
+      } else {
+        console.log('No valid session found');
+        apiClient.setUserId(null); // Clear any stale user ID
+        return null;
       }
     }
   } catch (error) {
-    console.error('Failed to set user ID:', error);
+    console.error('Failed to ensure user ID:', error);
+    apiClient.setUserId(null); // Clear any stale user ID on error
   }
+  return null;
 }
 
-// Auto-initialize
-setCurrentUser(); 
+// Simple function to get current user ID and set it
+export async function setCurrentUser() {
+  return ensureUserIdSet();
+} 
